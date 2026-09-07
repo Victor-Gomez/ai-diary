@@ -1,0 +1,267 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import Icon from '../../components/ui/Icon.astro';
+import { getSettings } from '../../lib/settings/settings';
+import { createProvider } from '../../lib/ai';
+import { listMemories } from '../../lib/memory/memories';
+
+export const prerender = false;
+
+const settings = getSettings();
+const status = await Promise.race([
+  createProvider(settings).status(),
+  new Promise<{ ok: boolean; detail: string }>((r) => setTimeout(() => r({ ok: false, detail: 'timeout' }), 2200)),
+]);
+const memories = listMemories();
+
+const providers = [
+  { value: 'mock', label: 'Local heuristic (built-in)', hint: 'No model needed. Fully offline sentiment & keyword analysis.' },
+  { value: 'local', label: 'Local model (Ollama / llama.cpp)', hint: 'OpenAI-compatible server on your machine.' },
+  { value: 'gemini-nano', label: 'Gemini Nano (Chrome)', hint: 'On-device Chrome Prompt API (falls back to built-in for now).' },
+  { value: 'openai-compatible', label: 'Custom OpenAI-compatible endpoint', hint: 'Any compatible API. Data leaves your device only if remote.' },
+];
+---
+<AppLayout title="Settings">
+  <div class="mx-auto max-w-2xl px-6 py-8 md:px-10">
+    <h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
+
+    <!-- AI -->
+    <section class="mt-6">
+      <h2 class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide" style="color: var(--text-faint)">
+        <Icon name="sparkles" size={14} /> AI
+      </h2>
+      <div class="card space-y-5 p-5">
+        <div>
+          <label class="text-sm font-medium">AI provider</label>
+          <div class="mt-2 space-y-2" id="provider-group">
+            {
+              providers.map((p) => (
+                <label class="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors" style="border-color: var(--border)">
+                  <input type="radio" name="providerKind" value={p.value} checked={settings.providerKind === p.value} class="mt-0.5 accent-[var(--accent)]" />
+                  <span>
+                    <span class="block text-sm font-medium">{p.label}</span>
+                    <span class="block text-xs" style="color: var(--text-muted)">{p.hint}</span>
+                  </span>
+                </label>
+              ))
+            }
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2" id="endpoint-fields">
+          <label class="text-sm">
+            <span class="font-medium">Endpoint</span>
+            <input id="endpoint" type="text" class="input mt-1" value={settings.endpoint} placeholder="http://localhost:11434/v1" />
+          </label>
+          <label class="text-sm">
+            <span class="font-medium">Model</span>
+            <input id="model" type="text" class="input mt-1" value={settings.model} placeholder="llama3.1 / gpt-4o-mini …" />
+          </label>
+        </div>
+
+        <label class="block text-sm" id="apikey-field">
+          <span class="font-medium">API key</span>
+          <span class="text-xs" style="color: var(--text-muted)"> — only for hosted endpoints; stored in your encrypted database</span>
+          <input id="apiKey" type="password" class="input mt-1" value={settings.apiKey} placeholder="Paste a hosted-endpoint key (leave blank for local models)" autocomplete="off" />
+        </label>
+
+        <div class="flex flex-wrap items-center gap-2 text-xs">
+          <span style="color: var(--text-faint)">Quick presets:</span>
+          <button type="button" class="chip cursor-pointer preset" data-kind="local" data-endpoint="http://localhost:11434/v1" data-model="llama3.1">Ollama (local)</button>
+          <button type="button" class="chip cursor-pointer preset" data-kind="openai-compatible" data-endpoint="https://generativelanguage.googleapis.com/v1beta/openai" data-model="gemini-2.0-flash">Google Gemini (cloud)</button>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-sm font-medium">AI analysis</div>
+            <div class="text-xs" style="color: var(--text-muted)">Extract mood, topics & people after saving. Never edits your text.</div>
+          </div>
+          <input id="analysisEnabled" type="checkbox" checked={settings.analysisEnabled} class="h-5 w-5 accent-[var(--accent)]" />
+        </div>
+
+        <label class="block text-sm">
+          <span class="font-medium">Chat context</span>
+          <span class="text-xs" style="color: var(--text-muted)"> — diary entries retrieved per question</span>
+          <input id="chatContextEntries" type="number" min="1" max="20" class="input mt-1 w-24" value={settings.chatContextEntries} />
+        </label>
+
+        <div class="flex items-center gap-3 border-t pt-4" style="border-color: var(--border)">
+          <button id="save-settings" class="btn btn-primary"><Icon name="check" size={15} /> Save settings</button>
+          <span id="provider-status" class="flex items-center gap-1.5 text-xs" style="color: var(--text-muted)">
+            <span class="inline-block h-2 w-2 rounded-full" style={`background: ${status.ok ? 'var(--accent)' : 'var(--danger)'}`}></span>
+            {status.detail}
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Privacy -->
+    <section class="mt-6">
+      <h2 class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide" style="color: var(--text-faint)">
+        <Icon name="lock" size={14} /> Privacy
+      </h2>
+      <div class="card space-y-2.5 p-5 text-sm" style="color: var(--text-muted)">
+        <p class="flex items-start gap-2"><Icon name="check" size={16} class="mt-0.5 shrink-0 text-[color:var(--accent)]" /> Your diary is stored locally, in an <strong class="font-semibold" style="color: var(--text)">encrypted SQLite database</strong> (SQLCipher / AES-256).</p>
+        <p class="flex items-start gap-2"><Icon name="check" size={16} class="mt-0.5 shrink-0 text-[color:var(--accent)]" /> AI processing can be performed <strong class="font-semibold" style="color: var(--text)">entirely on-device</strong> with the built-in provider or a local model.</p>
+        <p class="flex items-start gap-2"><Icon name="check" size={16} class="mt-0.5 shrink-0 text-[color:var(--accent)]" /> <strong class="font-semibold" style="color: var(--text)">No diary data is uploaded</strong> unless you explicitly configure a remote AI endpoint.</p>
+        <p class="mt-1 text-xs" style="color: var(--text-faint)">Encryption key: stored locally in <code>data/diary.key</code> (or the <code>DIARY_DB_KEY</code> environment variable). Keep a copy — backups can’t be opened without it.</p>
+      </div>
+    </section>
+
+    <!-- Long-term memory -->
+    <section class="mt-6">
+      <h2 class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide" style="color: var(--text-faint)">
+        <Icon name="database" size={14} /> Long-term memory
+      </h2>
+      <div class="card p-5">
+        <div class="flex items-center justify-between">
+          <p class="text-sm" style="color: var(--text-muted)">Derived observations across many entries. Always secondary to your actual entries.</p>
+          <button id="regen-memories" class="btn shrink-0"><Icon name="sparkles" size={15} /> Regenerate</button>
+        </div>
+        <div id="memory-list" class="mt-3 space-y-1.5">
+          {
+            memories.length === 0 ? (
+              <p class="text-xs" style="color: var(--text-faint)">No memories yet. They’re generated from your analyzed entries.</p>
+            ) : (
+              memories.map((m) => (
+                <div class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm" style="background: var(--surface-2)">
+                  <span class="chip text-[10px]">{m.type}</span>
+                  <span class="flex-1">{m.content}</span>
+                  <button class="del-memory btn btn-ghost px-1.5 py-1" data-id={m.id} aria-label="Delete memory"><Icon name="x" size={13} /></button>
+                </div>
+              ))
+            )
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- Data -->
+    <section class="mt-6 mb-10">
+      <h2 class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide" style="color: var(--text-faint)">
+        <Icon name="database" size={14} /> Data
+      </h2>
+      <div class="card space-y-3 p-5">
+        <div class="flex flex-wrap gap-2">
+          <a href="/api/data/export" class="btn"><Icon name="download" size={15} /> Export diary (JSON)</a>
+          <a href="/api/data/backup" class="btn"><Icon name="database" size={15} /> Backup database</a>
+          <label class="btn cursor-pointer">
+            <Icon name="upload" size={15} /> Import
+            <input id="import-file" type="file" accept="application/json" class="hidden" />
+          </label>
+        </div>
+        <p class="text-xs" style="color: var(--text-faint)">Export is decrypted, portable JSON. Backup is the raw encrypted <code>.db</code> (needs your key to restore). Import <strong>replaces</strong> all current data.</p>
+
+        <div class="mt-2 rounded-lg border p-3.5" style="border-color: var(--danger); background: var(--danger-soft)">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <div class="text-sm font-semibold" style="color: var(--danger)">Delete all data</div>
+              <div class="text-xs" style="color: var(--text-muted)">Permanently erase every entry, conversation and memory.</div>
+            </div>
+            <button id="delete-all" class="btn btn-danger shrink-0"><Icon name="trash" size={15} /> Delete all</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</AppLayout>
+
+<script>
+  import { showToast } from '../../lib/client/toast';
+  import { apiSend } from '../../lib/client/api';
+  import type { AppSettings } from '@/types';
+
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+  // Save settings
+  $('save-settings')?.addEventListener('click', async () => {
+    const kind = (document.querySelector('input[name="providerKind"]:checked') as HTMLInputElement)?.value;
+    const patch: Partial<AppSettings> = {
+      providerKind: kind as AppSettings['providerKind'],
+      endpoint: ($('endpoint') as HTMLInputElement).value.trim(),
+      model: ($('model') as HTMLInputElement).value.trim(),
+      apiKey: ($('apiKey') as HTMLInputElement).value.trim(),
+      analysisEnabled: ($('analysisEnabled') as HTMLInputElement).checked,
+      chatContextEntries: Number(($('chatContextEntries') as HTMLInputElement).value) || 6,
+    };
+    try {
+      const res = await apiSend<{ status: { ok: boolean; detail: string } }>('/api/settings', 'PUT', patch);
+      showToast('Settings saved', 'success');
+      const statusEl = $('provider-status');
+      if (statusEl) {
+        statusEl.innerHTML = `<span class="inline-block h-2 w-2 rounded-full" style="background: ${res.status.ok ? 'var(--accent)' : 'var(--danger)'}"></span> ${res.status.detail}`;
+      }
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    }
+  });
+
+  // Endpoint presets (Ollama / Gemini) prefill the fields; user still clicks Save.
+  document.querySelectorAll<HTMLButtonElement>('.preset').forEach((btn) =>
+    btn.addEventListener('click', () => {
+      const kind = btn.dataset.kind!;
+      const radio = document.querySelector<HTMLInputElement>(`input[name="providerKind"][value="${kind}"]`);
+      if (radio) radio.checked = true;
+      ($('endpoint') as HTMLInputElement).value = btn.dataset.endpoint ?? '';
+      ($('model') as HTMLInputElement).value = btn.dataset.model ?? '';
+      const needsKey = kind === 'openai-compatible';
+      ($('apiKey') as HTMLInputElement).focus();
+      showToast(needsKey ? 'Paste your API key, then Save' : 'Fields filled — click Save', 'info');
+    }),
+  );
+
+  // Regenerate memories
+  $('regen-memories')?.addEventListener('click', async () => {
+    try {
+      await apiSend('/api/memory', 'POST');
+      showToast('Memories regenerated', 'success');
+      window.location.reload();
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    }
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('.del-memory').forEach((btn) =>
+    btn.addEventListener('click', async () => {
+      try {
+        await apiSend(`/api/memory?id=${btn.dataset.id}`, 'DELETE');
+        btn.closest('div')?.remove();
+      } catch (e) {
+        showToast((e as Error).message, 'error');
+      }
+    }),
+  );
+
+  // Import
+  $('import-file')?.addEventListener('change', async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    if (!confirm('Importing will REPLACE all current diary data. Continue?')) return;
+    try {
+      const text = await file.text();
+      const res = await fetch('/api/data/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: text,
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Import failed');
+      showToast('Import complete', 'success');
+      setTimeout(() => window.location.reload(), 700);
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+    }
+  });
+
+  // Delete all
+  $('delete-all')?.addEventListener('click', async () => {
+    const answer = prompt('This permanently deletes ALL data. Type DELETE to confirm.');
+    if (answer !== 'DELETE') return;
+    try {
+      await apiSend('/api/data/delete-all', 'POST', { confirm: 'DELETE' });
+      showToast('All data deleted', 'success');
+      setTimeout(() => (window.location.href = '/'), 700);
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    }
+  });
+</script>

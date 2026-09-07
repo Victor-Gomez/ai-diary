@@ -1,0 +1,107 @@
+---
+import '../styles/global.css';
+import Sidebar from '../components/layout/Sidebar.astro';
+import Icon from '../components/ui/Icon.astro';
+import { getSettings } from '../lib/settings/settings';
+import { createProvider } from '../lib/ai';
+
+interface Props {
+  title?: string;
+  hasContext?: boolean;
+}
+const { title = 'Diary', hasContext = false } = Astro.props;
+
+const active = Astro.url.pathname;
+const settings = getSettings();
+const provider = createProvider(settings);
+// status() can hit the network for remote providers; cap it so SSR stays snappy.
+const status = await Promise.race([
+  provider.status(),
+  new Promise<{ ok: boolean; detail: string }>((r) =>
+    setTimeout(() => r({ ok: false, detail: 'status timed out' }), 2200),
+  ),
+]);
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="color-scheme" content="light dark" />
+    <title>{title} · Diary</title>
+    <script is:inline>
+      // Apply saved theme before first paint to avoid a flash.
+      try {
+        const t = localStorage.getItem('diary-theme');
+        if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div class="flex h-screen overflow-hidden">
+      <Sidebar
+        active={active}
+        providerLabel={provider.label}
+        providerOk={status.ok}
+        providerDetail={status.detail}
+        isLocal={provider.isLocal}
+      />
+
+      <main class="flex-1 overflow-y-auto">
+        <slot />
+      </main>
+
+      {
+        hasContext && (
+          <aside
+            class="hidden w-[320px] shrink-0 overflow-y-auto border-l xl:block"
+            style="background: var(--surface-2); border-color: var(--border);"
+          >
+            <slot name="context" />
+          </aside>
+        )
+      }
+    </div>
+
+    <!-- Toast host -->
+    <div
+      id="toast-host"
+      class="pointer-events-none fixed bottom-5 left-1/2 z-[60] flex -translate-x-1/2 flex-col items-center gap-2"
+    >
+    </div>
+
+    <!-- Command palette / quick search (Cmd/Ctrl+K) -->
+    <div
+      id="palette"
+      class="fixed inset-0 z-50 hidden items-start justify-center bg-black/30 px-4 pt-[12vh] backdrop-blur-sm"
+    >
+      <div class="card w-full max-w-xl overflow-hidden animate-in" style="box-shadow: var(--shadow)">
+        <div class="flex items-center gap-2 border-b px-4" style="border-color: var(--border)">
+          <Icon name="search" size={18} class="opacity-60" />
+          <input
+            id="palette-input"
+            type="text"
+            placeholder="Search your diary…"
+            class="w-full bg-transparent py-3.5 text-sm outline-none"
+            autocomplete="off"
+          />
+          <kbd class="chip text-[10px]">Esc</kbd>
+        </div>
+        <ul id="palette-results" class="max-h-[46vh] overflow-y-auto p-2 text-sm"></ul>
+        <div
+          class="flex items-center justify-between border-t px-4 py-2 text-[11px]"
+          style="border-color: var(--border); color: var(--text-faint)"
+        >
+          <span>↑↓ to navigate · ↵ to open</span>
+          <a href="/search" class="hover:underline">Advanced search →</a>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      import { initShell } from '../lib/client/shell';
+      initShell();
+    </script>
+  </body>
+</html>

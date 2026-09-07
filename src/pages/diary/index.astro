@@ -1,0 +1,88 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import EntryCard from '../../components/diary/EntryCard.astro';
+import Calendar from '../../components/diary/Calendar.astro';
+import Icon from '../../components/ui/Icon.astro';
+import {
+  listEntries,
+  getEntriesByDate,
+  getEntryDateKeys,
+  countEntries,
+} from '../../lib/diary/entries';
+import { formatLongDate } from '../../lib/utils/date';
+
+export const prerender = false;
+
+const url = Astro.url;
+const dateParam = url.searchParams.get('date');
+const monthParam = url.searchParams.get('month');
+
+const now = new Date();
+let calYear = now.getFullYear();
+let calMonth = now.getMonth();
+if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+  const [y, m] = monthParam.split('-').map(Number);
+  calYear = y!;
+  calMonth = m! - 1;
+} else if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+  const [y, m] = dateParam.split('-').map(Number);
+  calYear = y!;
+  calMonth = m! - 1;
+}
+
+const entries = dateParam ? getEntriesByDate(dateParam) : listEntries(200);
+const total = countEntries();
+const entryDates = getEntryDateKeys();
+---
+<AppLayout title="Diary" hasContext={true}>
+  <div class="mx-auto max-w-3xl px-6 py-6 md:px-10">
+    <header class="mb-5 flex items-end justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight">Diary</h1>
+        <p class="mt-0.5 text-sm" style="color: var(--text-muted)">
+          {
+            dateParam
+              ? `Entries from ${formatLongDate(dateParam + 'T12:00:00')}`
+              : `${total} ${total === 1 ? 'entry' : 'entries'} · your complete journal`
+          }
+        </p>
+      </div>
+      <a href="/diary/new" class="btn btn-primary shrink-0"><Icon name="plus" size={16} /> New entry</a>
+    </header>
+
+    {
+      entries.length === 0 ? (
+        <div class="card flex flex-col items-center justify-center px-6 py-16 text-center">
+          <div class="mb-3 rounded-full p-3" style="background: var(--accent-soft)">
+            <Icon name="book" size={26} class="text-[color:var(--accent-hover)]" />
+          </div>
+          <h2 class="text-lg font-semibold">
+            {dateParam ? 'No entries on this day' : 'Your diary is empty'}
+          </h2>
+          <p class="mt-1 max-w-sm text-sm" style="color: var(--text-muted)">
+            {dateParam
+              ? 'Pick another day on the calendar, or start writing.'
+              : 'Start capturing your days. Everything you write stays encrypted on this device.'}
+          </p>
+          <a href="/diary/new" class="btn btn-primary mt-4"><Icon name="plus" size={16} /> Write your first entry</a>
+        </div>
+      ) : (
+        <div class="flex flex-col gap-3">
+          {entries.map((entry) => <EntryCard entry={entry} />)}
+        </div>
+      )
+    }
+  </div>
+
+  <Fragment slot="context">
+    <Calendar year={calYear} month={calMonth} entryDates={entryDates} selectedDate={dateParam} />
+    <div class="px-4 pb-4">
+      <div class="card px-4 py-3 text-xs" style="color: var(--text-muted)">
+        <div class="flex items-center gap-2 font-medium" style="color: var(--text)">
+          <Icon name="calendar" size={14} /> Jump to a day
+        </div>
+        <p class="mt-1 leading-relaxed">Days with a dot have entries. Click any day to filter.</p>
+      </div>
+    </div>
+  </Fragment>
+</AppLayout>

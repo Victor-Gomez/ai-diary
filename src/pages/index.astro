@@ -1,0 +1,147 @@
+---
+import AppLayout from '../layouts/AppLayout.astro';
+import EntryCard from '../components/diary/EntryCard.astro';
+import MoodMeter from '../components/diary/MoodMeter.astro';
+import Icon from '../components/ui/Icon.astro';
+import { listEntries, getEntriesByDate } from '../lib/diary/entries';
+import { getInsights } from '../lib/diary/insights';
+import { promptOfTheDay } from '../lib/diary/prompts';
+import { greeting, formatLongDate, toDateKey } from '../lib/utils/date';
+import { deriveTitle, excerpt } from '../lib/utils/text';
+
+export const prerender = false;
+
+const todayKey = toDateKey(new Date());
+const todaysEntries = getEntriesByDate(todayKey);
+const todayEntry = todaysEntries[0] ?? null;
+const recent = listEntries(6).filter((e) => e.id !== todayEntry?.id).slice(0, 5);
+const insights = getInsights(14);
+const prompt = promptOfTheDay();
+
+// Sparkline geometry from the mood trend.
+const trend = insights.trend;
+const W = 260;
+const H = 44;
+function sparkPoints(values: number[]): string {
+  if (values.length <= 1) return '';
+  return values
+    .map((v, i) => {
+      const x = (i / (values.length - 1)) * W;
+      const y = H - v * H;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+}
+const moodLine = sparkPoints(trend.map((t) => t.mood));
+
+// A gentle, derived (non-fabricated) reflection.
+let reflection = '';
+if (insights.entriesAnalyzed >= 2 && insights.avgMood !== null) {
+  const moodWord = insights.avgMood > 0.6 ? 'mostly positive' : insights.avgMood < 0.4 ? 'a bit low' : 'fairly balanced';
+  const topTopic = insights.topTopics[0]?.label;
+  reflection = `Your recent entries feel ${moodWord}.` + (topTopic ? ` ${topTopic[0]!.toUpperCase()}${topTopic.slice(1)} comes up often lately.` : '');
+}
+---
+<AppLayout title="Today" hasContext={true}>
+  <div class="mx-auto max-w-2xl px-6 py-10 md:px-10">
+    <p class="text-sm font-medium" style="color: var(--accent-hover)">{greeting()}</p>
+    <h1 class="mt-1 text-3xl font-semibold tracking-tight">{formatLongDate(new Date().toISOString())}</h1>
+
+    <!-- Today's writing action -->
+    {
+      todayEntry ? (
+        <a href={`/diary/${todayEntry.id}`} class="card mt-6 block px-5 py-4 transition-transform hover:-translate-y-px animate-in">
+          <div class="flex items-center gap-2 text-xs font-medium" style="color: var(--text-faint)">
+            <Icon name="edit" size={13} /> Today’s entry · continue writing
+          </div>
+          <h2 class="mt-1.5 text-lg font-semibold tracking-tight">{deriveTitle(todayEntry.content)}</h2>
+          <p class="mt-1 line-clamp-2 text-sm" style="color: var(--text-muted)">{excerpt(todayEntry.content, 180)}</p>
+        </a>
+      ) : (
+        <div class="card mt-6 px-5 py-6 animate-in">
+          <h2 class="text-lg font-semibold tracking-tight">How was your day?</h2>
+          <p class="mt-1 text-sm" style="color: var(--text-muted)">{prompt}</p>
+          <a href="/diary/new" class="btn btn-primary mt-4"><Icon name="edit" size={15} /> Start writing…</a>
+        </div>
+      )
+    }
+
+    <!-- Recent -->
+    <section class="mt-9">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-xs font-semibold uppercase tracking-wide" style="color: var(--text-faint)">Recent</h2>
+        <a href="/diary" class="text-xs hover:underline" style="color: var(--text-muted)">View all →</a>
+      </div>
+      {
+        recent.length === 0 ? (
+          <p class="text-sm" style="color: var(--text-muted)">Nothing yet — your recent entries will appear here.</p>
+        ) : (
+          <div class="flex flex-col gap-2.5">
+            {recent.map((entry) => <EntryCard entry={entry} compact />)}
+          </div>
+        )
+      }
+    </section>
+  </div>
+
+  <Fragment slot="context">
+    <div class="p-4 space-y-4">
+      <!-- Mood snapshot -->
+      <div class="card px-4 py-3.5">
+        <h2 class="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide" style="color: var(--text-faint)">
+          <Icon name="sparkles" size={13} /> Mood snapshot
+        </h2>
+        {
+          insights.entriesAnalyzed === 0 ? (
+            <p class="text-xs leading-relaxed" style="color: var(--text-muted)">
+              Write and analyze a few entries to see your mood trends here.
+            </p>
+          ) : (
+            <div class="space-y-2">
+              {insights.avgMood !== null && <MoodMeter label="Mood" value={insights.avgMood} color="var(--accent)" />}
+              {insights.avgStress !== null && <MoodMeter label="Stress" value={insights.avgStress} color="#d9852b" />}
+              {insights.avgEnergy !== null && <MoodMeter label="Energy" value={insights.avgEnergy} color="#3b82c4" />}
+              {
+                moodLine && (
+                  <div class="pt-2">
+                    <div class="mb-1 text-[10px] uppercase tracking-wide" style="color: var(--text-faint)">Mood over time</div>
+                    <svg viewBox={`0 0 ${W} ${H}`} class="w-full" style="height: 44px" preserveAspectRatio="none">
+                      <polyline points={moodLine} fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+                    </svg>
+                  </div>
+                )
+              }
+              <p class="pt-1 text-[10px]" style="color: var(--text-faint)">Based on {insights.entriesAnalyzed} recent entries</p>
+            </div>
+          )
+        }
+      </div>
+
+      <!-- Reflection -->
+      {
+        reflection && (
+          <div class="card px-4 py-3.5">
+            <h2 class="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide" style="color: var(--text-faint)">
+              <Icon name="sparkles" size={13} /> Reflection
+            </h2>
+            <p class="prose-diary text-sm" style="font-size: 0.9rem; line-height: 1.6">{reflection}</p>
+          </div>
+        )
+      }
+
+      <!-- Top topics -->
+      {
+        insights.topTopics.length > 0 && (
+          <div class="card px-4 py-3.5">
+            <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide" style="color: var(--text-faint)">On your mind</h2>
+            <div class="flex flex-wrap gap-1.5">
+              {insights.topTopics.map((t) => (
+                <a href={`/search?topics=${encodeURIComponent(t.label)}`} class="chip chip-accent text-[11px]">#{t.label} · {t.count}</a>
+              ))}
+            </div>
+          </div>
+        )
+      }
+    </div>
+  </Fragment>
+</AppLayout>

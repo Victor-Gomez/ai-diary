@@ -1,0 +1,58 @@
+---
+import { deriveTitle, excerpt as makeExcerpt } from '../../lib/utils/text';
+import { formatLongDate, formatTime } from '../../lib/utils/date';
+import type { DiaryEntryWithAnalysis, EntryAnalysis } from '@/types';
+import Icon from '../ui/Icon.astro';
+
+interface Props {
+  entry: DiaryEntryWithAnalysis;
+  excerptText?: string;
+  compact?: boolean;
+}
+const { entry, excerptText, compact = false } = Astro.props;
+const analysis: EntryAnalysis | null = entry.analysis;
+const title = deriveTitle(entry.content);
+const body = excerptText ?? makeExcerpt(entry.content, compact ? 120 : 220);
+const moodFilled = analysis ? Math.round(analysis.mood * 5) : 0;
+---
+<a
+  href={`/diary/${entry.id}`}
+  class="card group block px-4 py-3.5 transition-all duration-150 hover:-translate-y-px"
+  style="--tw-shadow: var(--shadow)"
+>
+  <div class="flex items-baseline justify-between gap-3">
+    <div class="flex items-center gap-2 text-xs font-medium" style="color: var(--text-muted)">
+      <Icon name="calendar" size={13} class="opacity-70" />
+      <span>{formatLongDate(entry.createdAt)}</span>
+      <span style="color: var(--text-faint)">· {formatTime(entry.createdAt)}</span>
+      {analysis?.important && (
+        <span class="chip chip-accent text-[10px]"><Icon name="sparkles" size={10} /> Notable</span>
+      )}
+    </div>
+    {
+      analysis && (
+        <span class="flex shrink-0 items-center gap-1" title={`Mood ${Math.round(analysis.mood * 100)}%`}>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <span
+              class="inline-block h-1.5 w-1.5 rounded-full"
+              style={`background: ${i < moodFilled ? 'var(--accent)' : 'var(--border-strong)'}`}
+            />
+          ))}
+        </span>
+      )
+    }
+  </div>
+
+  <h3 class="mt-2 truncate text-[15px] font-semibold tracking-tight">{title}</h3>
+  {!compact && <p class="mt-1 line-clamp-2 text-sm leading-relaxed" style="color: var(--text-muted)">{body}</p>}
+
+  {
+    analysis && analysis.topics.length > 0 && (
+      <div class="mt-2.5 flex flex-wrap gap-1.5">
+        {analysis.topics.slice(0, 4).map((t) => (
+          <span class="chip text-[11px]">#{t}</span>
+        ))}
+      </div>
+    )
+  }
+</a>

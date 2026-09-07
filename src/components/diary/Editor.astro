@@ -1,0 +1,232 @@
+---
+import Icon from '../ui/Icon.astro';
+import { formatLongDate, formatTime } from '../../lib/utils/date';
+
+interface Props {
+  id: string | null;
+  content: string;
+  createdAt: string | null;
+}
+const { id, content, createdAt } = Astro.props;
+---
+<div class="mx-auto flex h-full max-w-3xl flex-col px-6 md:px-10">
+  <!-- Toolbar -->
+  <header class="flex items-center gap-3 pt-6 pb-3">
+    <a href="/diary" class="btn btn-ghost px-2" aria-label="Back to diary" title="Back">
+      <Icon name="arrowLeft" size={18} />
+    </a>
+    <div>
+      <div class="text-sm font-semibold tracking-tight">
+        {createdAt ? formatLongDate(createdAt) : 'New entry'}
+      </div>
+      <div class="text-[11px]" style="color: var(--text-faint)">
+        {createdAt ? `Started ${formatTime(createdAt)}` : 'Not saved yet'}
+      </div>
+    </div>
+
+    <div class="ml-auto flex items-center gap-2">
+      <span
+        id="save-status"
+        class="flex items-center gap-1.5 text-xs transition-opacity"
+        style="color: var(--text-faint)"
+        aria-live="polite"
+      >
+        <span class="inline-block h-1.5 w-1.5 rounded-full" style="background: var(--border-strong)" id="save-dot"></span>
+        <span id="save-text">Ready</span>
+      </span>
+      <button type="button" id="preview-toggle" class="btn btn-ghost px-2.5 py-1.5 text-xs" aria-pressed="false">
+        <Icon name="book" size={15} /> Preview
+      </button>
+      {
+        id && (
+          <button type="button" id="delete-btn" class="btn btn-danger px-2.5 py-1.5 text-xs">
+            <Icon name="trash" size={15} />
+          </button>
+        )
+      }
+    </div>
+  </header>
+
+  <!-- Writing surface -->
+  <div class="relative flex-1 overflow-hidden pb-6">
+    <textarea
+      id="editor"
+      class="prose-diary h-full w-full resize-none bg-transparent outline-none placeholder:opacity-60"
+      style="color: var(--text)"
+      placeholder="Start writing…  (Markdown supported)"
+      spellcheck="true"
+      data-entry-id={id ?? ''}
+      data-created-at={createdAt ?? ''}
+    >{content}</textarea>
+    <div
+      id="preview"
+      class="prose-diary hidden h-full w-full overflow-y-auto"
+    ></div>
+  </div>
+
+  <!-- Footer -->
+  <footer
+    class="flex items-center gap-3 border-t py-2.5 text-[11px]"
+    style="border-color: var(--border); color: var(--text-faint)"
+  >
+    <span id="word-count">0 words</span>
+    <span id="read-time"></span>
+    <span class="ml-auto flex items-center gap-1"><Icon name="lock" size={11} /> Encrypted &amp; local</span>
+    <kbd class="chip text-[10px]">⌘/Ctrl+S</kbd>
+  </footer>
+</div>
+
+<script>
+  import { showToast } from '../../lib/client/toast';
+  import { renderMarkdown } from '../../lib/utils/markdown';
+
+  const editor = document.getElementById('editor') as HTMLTextAreaElement;
+  const preview = document.getElementById('preview') as HTMLElement;
+  const previewToggle = document.getElementById('preview-toggle') as HTMLButtonElement;
+  const deleteBtn = document.getElementById('delete-btn') as HTMLButtonElement | null;
+  const saveText = document.getElementById('save-text') as HTMLElement;
+  const saveDot = document.getElementById('save-dot') as HTMLElement;
+  const wordCountEl = document.getElementById('word-count') as HTMLElement;
+  const readTimeEl = document.getElementById('read-time') as HTMLElement;
+
+  let entryId = editor.dataset.entryId || null;
+  let lastSaved = editor.value;
+  let saveTimer: number | undefined;
+  let analyzeTimer: number | undefined;
+  let saving = false;
+
+  function setStatus(text: string, tone: 'idle' | 'saving' | 'saved' | 'dirty') {
+    saveText.textContent = text;
+    const colors = {
+      idle: 'var(--border-strong)',
+      saving: '#d9852b',
+      saved: 'var(--accent)',
+      dirty: 'var(--text-faint)',
+    } as const;
+    saveDot.style.background = colors[tone];
+  }
+
+  function updateCounts() {
+    const text = editor.value.trim();
+    const words = text ? text.split(/\s+/).length : 0;
+    wordCountEl.textContent = `${words} word${words === 1 ? '' : 's'}`;
+    const mins = Math.max(1, Math.round(words / 200));
+    readTimeEl.textContent = words > 0 ? `· ${mins} min read` : '';
+  }
+
+  async function save(): Promise<void> {
+    if (saving) return;
+    const content = editor.value;
+    if (content === lastSaved) return;
+    saving = true;
+    setStatus('Saving…', 'saving');
+    try {
+      if (!entryId) {
+        const res = await fetch('/api/entries', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content }),
+        });
+        const entry = (await res.json()) as { id: string };
+        entryId = entry.id;
+        editor.dataset.entryId = entryId;
+        history.replaceState(null, '', `/diary/${entryId}`);
+      } else {
+        await fetch(`/api/entries/${entryId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content }),
+        });
+      }
+      lastSaved = content;
+      setStatus('All changes saved', 'saved');
+      scheduleAnalyze();
+    } catch (e) {
+      setStatus('Save failed', 'dirty');
+      showToast('Could not save — retrying on next change', 'error');
+    } finally {
+      saving = false;
+    }
+  }
+
+  // Background, non-intrusive analysis after writing settles.
+  function scheduleAnalyze() {
+    window.clearTimeout(analyzeTimer);
+    analyzeTimer = window.setTimeout(() => {
+      if (!entryId || !editor.value.trim()) return;
+      void fetch(`/api/entries/${entryId}/analyze`, { method: 'POST' }).catch(() => {});
+    }, 4000);
+  }
+
+  editor.addEventListener('input', () => {
+    updateCounts();
+    setStatus('Editing…', 'dirty');
+    window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(() => void save(), 800);
+  });
+
+  editor.addEventListener('blur', () => void save());
+
+  // Ctrl/Cmd+S
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      window.clearTimeout(saveTimer);
+      void save();
+    }
+  });
+
+  // Guard against accidental loss. sendBeacon can only POST, so we use it to
+  // create a not-yet-saved entry; existing entries are covered by blur/keepalive.
+  window.addEventListener('beforeunload', (e) => {
+    if (editor.value === lastSaved) return;
+    const payload = new Blob([JSON.stringify({ content: editor.value })], {
+      type: 'application/json',
+    });
+    if (!entryId) {
+      navigator.sendBeacon?.('/api/entries', payload);
+    } else {
+      void fetch(`/api/entries/${entryId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: editor.value }),
+        keepalive: true,
+      });
+    }
+    e.preventDefault();
+    e.returnValue = '';
+  });
+
+  // Preview toggle
+  let previewing = false;
+  previewToggle.addEventListener('click', () => {
+    previewing = !previewing;
+    previewToggle.setAttribute('aria-pressed', String(previewing));
+    if (previewing) {
+      preview.innerHTML = renderMarkdown(editor.value) || '<p style="color:var(--text-faint)">Nothing to preview yet.</p>';
+      editor.classList.add('hidden');
+      preview.classList.remove('hidden');
+    } else {
+      preview.classList.add('hidden');
+      editor.classList.remove('hidden');
+      editor.focus();
+    }
+  });
+
+  // Delete
+  deleteBtn?.addEventListener('click', async () => {
+    if (!entryId) return;
+    if (!confirm('Delete this entry permanently? This cannot be undone.')) return;
+    try {
+      await fetch(`/api/entries/${entryId}`, { method: 'DELETE' });
+      showToast('Entry deleted', 'success');
+      window.location.href = '/diary';
+    } catch {
+      showToast('Could not delete entry', 'error');
+    }
+  });
+
+  updateCounts();
+  if (!entryId) editor.focus();
+  setStatus(entryId ? 'All changes saved' : 'Ready', entryId ? 'saved' : 'idle');
+</script>

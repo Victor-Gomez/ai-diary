@@ -1,0 +1,86 @@
+---
+import Icon from '../ui/Icon.astro';
+import { monthLabel, toDateKey } from '../../lib/utils/date';
+
+interface Props {
+  year: number;
+  month: number; // 0-based
+  entryDates: string[]; // YYYY-MM-DD keys with entries
+  selectedDate?: string | null;
+}
+const { year, month, entryDates, selectedDate } = Astro.props;
+const has = new Set(entryDates);
+
+const first = new Date(year, month, 1);
+const daysInMonth = new Date(year, month + 1, 0).getDate();
+// Monday-first offset (JS getDay: 0=Sun..6=Sat -> 0=Mon..6=Sun)
+const startOffset = (first.getDay() + 6) % 7;
+
+const todayKey = toDateKey(new Date());
+const cells: (number | null)[] = [
+  ...Array.from({ length: startOffset }, () => null),
+  ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+];
+
+const prevMonth = month === 0 ? { y: year - 1, m: 11 } : { y: year, m: month - 1 };
+const nextMonth = month === 11 ? { y: year + 1, m: 0 } : { y: year, m: month + 1 };
+const fmt = (y: number, m: number) => `${y}-${String(m + 1).padStart(2, '0')}`;
+const dayNames = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+---
+<div class="p-4">
+  <div class="mb-3 flex items-center justify-between">
+    <h2 class="text-sm font-semibold tracking-tight">{monthLabel(year, month)}</h2>
+    <div class="flex items-center gap-1">
+      <a class="btn btn-ghost px-1.5 py-1" href={`/diary?month=${fmt(prevMonth.y, prevMonth.m)}`} aria-label="Previous month">
+        <Icon name="chevronLeft" size={16} />
+      </a>
+      <a class="btn btn-ghost px-1.5 py-1" href={`/diary?month=${fmt(nextMonth.y, nextMonth.m)}`} aria-label="Next month">
+        <Icon name="chevronRight" size={16} />
+      </a>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-medium" style="color: var(--text-faint)">
+    {dayNames.map((d) => <div class="py-1">{d}</div>)}
+  </div>
+
+  <div class="grid grid-cols-7 gap-1">
+    {
+      cells.map((day) => {
+        if (day === null) return <div></div>;
+        const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const hasEntry = has.has(key);
+        const isToday = key === todayKey;
+        const isSelected = key === selectedDate;
+        return (
+          <a
+            href={`/diary?date=${key}`}
+            class="relative flex aspect-square items-center justify-center rounded-lg text-xs transition-colors"
+            style={
+              isSelected
+                ? 'background: var(--accent); color: var(--accent-contrast); font-weight:600'
+                : hasEntry
+                  ? 'background: var(--accent-soft); color: var(--accent-hover); font-weight:600'
+                  : 'color: var(--text-muted)'
+            }
+            aria-current={isToday ? 'date' : undefined}
+            title={hasEntry ? `${key} — has entries` : key}
+          >
+            <span class={isToday && !isSelected ? 'underline underline-offset-4' : ''}>{day}</span>
+            {hasEntry && !isSelected && (
+              <span class="absolute bottom-1 h-1 w-1 rounded-full" style="background: var(--accent)"></span>
+            )}
+          </a>
+        );
+      })
+    }
+  </div>
+
+  {
+    selectedDate && (
+      <a href="/diary" class="mt-3 inline-flex w-full items-center justify-center gap-1.5 text-xs hover:underline" style="color: var(--text-muted)">
+        <Icon name="x" size={13} /> Clear date filter
+      </a>
+    )
+  }
+</div>

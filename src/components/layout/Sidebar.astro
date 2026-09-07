@@ -1,0 +1,105 @@
+---
+import Icon from '../ui/Icon.astro';
+
+interface Props {
+  active: string;
+  providerLabel: string;
+  providerOk: boolean;
+  providerDetail: string;
+  isLocal: boolean;
+}
+const { active, providerLabel, providerOk, providerDetail, isLocal } = Astro.props;
+
+const nav = [
+  { href: '/', label: 'Today', icon: 'home', match: (p: string) => p === '/' },
+  { href: '/diary', label: 'Diary', icon: 'book', match: (p: string) => p.startsWith('/diary') },
+  { href: '/search', label: 'Search', icon: 'search', match: (p: string) => p.startsWith('/search') },
+  { href: '/chat', label: 'Chat', icon: 'chat', match: (p: string) => p.startsWith('/chat') },
+];
+---
+<aside
+  class="flex h-full w-[248px] shrink-0 flex-col border-r"
+  style="background: var(--surface-2); border-color: var(--border);"
+>
+  <!-- Brand -->
+  <div class="flex items-center gap-2.5 px-4 pt-4 pb-3">
+    <img src="/logo.svg" alt="" width="26" height="26" class="rounded-md" />
+    <span class="text-[15px] font-semibold tracking-tight">Diary</span>
+    <span class="chip ml-auto gap-1 text-[10px]" title="Everything stays on this device">
+      <Icon name="lock" size={11} /> Local
+    </span>
+  </div>
+
+  <!-- Quick action -->
+  <div class="px-3 pb-2">
+    <a href="/diary/new" class="btn btn-primary w-full" data-shortcut="new-entry">
+      <Icon name="plus" size={16} /> New entry
+    </a>
+  </div>
+
+  <!-- Nav -->
+  <nav class="flex flex-col gap-0.5 px-3 py-2">
+    {
+      nav.map((item) => (
+        <a
+          href={item.href}
+          class="nav-link"
+          aria-current={item.match(active) ? 'page' : undefined}
+        >
+          <Icon name={item.icon} size={17} />
+          {item.label}
+        </a>
+      ))
+    }
+  </nav>
+
+  <div class="mt-auto px-3 py-3">
+    <!-- Provider status -->
+    <a
+      href="/settings"
+      class="card block px-3 py-2.5 transition-colors hover:brightness-[0.99]"
+      title={providerDetail}
+    >
+      <div class="flex items-center gap-2">
+        <span
+          class="inline-block h-2 w-2 shrink-0 rounded-full"
+          style={`background: ${providerOk ? 'var(--accent)' : 'var(--danger)'}`}
+        ></span>
+        <span class="text-xs font-medium">AI provider</span>
+        {isLocal && <span class="chip ml-auto text-[10px]">on-device</span>}
+      </div>
+      <div class="mt-1 truncate text-[11px]" style="color: var(--text-faint)">
+        {providerLabel}
+      </div>
+    </a>
+
+    <div class="mt-2 flex items-center gap-1">
+      <a
+        href="/settings"
+        class="nav-link flex-1"
+        aria-current={active.startsWith('/settings') ? 'page' : undefined}
+      >
+        <Icon name="settings" size={17} /> Settings
+      </a>
+      <button
+        type="button"
+        id="theme-toggle"
+        class="btn btn-ghost px-2"
+        aria-label="Toggle dark mode"
+        title="Toggle theme"
+      >
+        <Icon name="sun" size={17} class="theme-icon-light" />
+        <Icon name="moon" size={17} class="theme-icon-dark" />
+      </button>
+    </div>
+  </div>
+</aside>
+
+<style>
+  :global([data-theme='dark']) .theme-icon-light { display: none; }
+  :global(:root:not([data-theme='dark'])) .theme-icon-dark { display: none; }
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme='light']):not([data-theme='dark'])) .theme-icon-light { display: none; }
+    :global(:root:not([data-theme='light']):not([data-theme='dark'])) .theme-icon-dark { display: inline; }
+  }
+</style>

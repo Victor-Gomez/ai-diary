@@ -1,0 +1,289 @@
+@import 'tailwindcss';
+
+/* Enable class/attribute-based dark mode (toggle) in addition to the system
+   preference handled by the CSS variables below. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme {
+  --font-sans: 'Inter var', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-serif: ui-serif, 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+  --radius-xl: 0.9rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Semantic design tokens. Defined once as CSS variables so the whole app themes
+   consistently in light/dark, driven either by the OS or a manual toggle.
+--------------------------------------------------------------------------- */
+:root {
+  --bg: #f6f6f4;
+  --surface: #ffffff;
+  --surface-2: #fbfbfa;
+  --surface-hover: #f1f1ef;
+  --border: #e7e6e2;
+  --border-strong: #d9d8d3;
+  --text: #23231f;
+  --text-muted: #6b6a64;
+  --text-faint: #96958e;
+  --accent: #4c9a2a;
+  --accent-hover: #418122;
+  --accent-soft: #eaf5e2;
+  --accent-contrast: #ffffff;
+  --danger: #c0392b;
+  --danger-soft: #fbeae8;
+  --shadow: 0 1px 2px rgba(24, 24, 20, 0.04), 0 4px 16px rgba(24, 24, 20, 0.06);
+  --ring: rgba(76, 154, 42, 0.35);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #16171a;
+    --surface: #1e1f23;
+    --surface-2: #232429;
+    --surface-hover: #2a2c32;
+    --border: #303239;
+    --border-strong: #3b3e46;
+    --text: #ececea;
+    --text-muted: #a3a5ac;
+    --text-faint: #74767d;
+    --accent: #7bc35a;
+    --accent-hover: #8cd06b;
+    --accent-soft: #253023;
+    --accent-contrast: #12140f;
+    --danger: #e06a5c;
+    --danger-soft: #33211f;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
+    --ring: rgba(123, 195, 90, 0.4);
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #16171a;
+  --surface: #1e1f23;
+  --surface-2: #232429;
+  --surface-hover: #2a2c32;
+  --border: #303239;
+  --border-strong: #3b3e46;
+  --text: #ececea;
+  --text-muted: #a3a5ac;
+  --text-faint: #74767d;
+  --accent: #7bc35a;
+  --accent-hover: #8cd06b;
+  --accent-soft: #253023;
+  --accent-contrast: #12140f;
+  --danger: #e06a5c;
+  --danger-soft: #33211f;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
+  --ring: rgba(123, 195, 90, 0.4);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+/* Refined thin scrollbars for the desktop feel. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+  background-clip: padding-box;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+  border-radius: 6px;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-all duration-150 select-none;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text);
+  }
+  .btn:hover {
+    background: var(--surface-hover);
+  }
+  .btn:active {
+    transform: translateY(0.5px);
+  }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-contrast);
+  }
+  .btn-primary:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
+  .btn-ghost {
+    border-color: transparent;
+    background: transparent;
+  }
+  .btn-ghost:hover {
+    background: var(--surface-hover);
+  }
+  .btn-danger {
+    color: var(--danger);
+    border-color: var(--border-strong);
+  }
+  .btn-danger:hover {
+    background: var(--danger-soft);
+    border-color: var(--danger);
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow);
+  }
+
+  .input {
+    @apply w-full rounded-lg px-3 py-2 text-sm transition-colors;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+  }
+  .input::placeholder {
+    color: var(--text-faint);
+  }
+  .input:focus {
+    border-color: var(--accent);
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+  .chip-accent {
+    background: var(--accent-soft);
+    border-color: transparent;
+    color: var(--accent-hover);
+  }
+
+  .nav-link {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors;
+    color: var(--text-muted);
+  }
+  .nav-link:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+  }
+  .nav-link[aria-current='page'] {
+    background: var(--accent-soft);
+    color: var(--accent-hover);
+  }
+
+  .palette-item {
+    color: var(--text);
+  }
+  .palette-item:hover,
+  .palette-item.is-active {
+    background: var(--surface-hover);
+  }
+}
+
+/* Long-form reading/writing typography for entries and chat answers. */
+.prose-diary {
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  line-height: 1.75;
+  color: var(--text);
+}
+.prose-diary h1,
+.prose-diary h2,
+.prose-diary h3 {
+  font-family: var(--font-sans);
+  font-weight: 650;
+  line-height: 1.3;
+  margin: 1.4em 0 0.5em;
+}
+.prose-diary h1 { font-size: 1.5rem; }
+.prose-diary h2 { font-size: 1.28rem; }
+.prose-diary h3 { font-size: 1.12rem; }
+.prose-diary p { margin: 0.75em 0; }
+.prose-diary ul,
+.prose-diary ol { margin: 0.75em 0; padding-left: 1.4em; }
+.prose-diary ul { list-style: disc; }
+.prose-diary ol { list-style: decimal; }
+.prose-diary li { margin: 0.25em 0; }
+.prose-diary blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1em;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0.9em 0;
+}
+.prose-diary code {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.9em;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 0.1em 0.35em;
+  border-radius: 5px;
+}
+.prose-diary pre {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9em 1em;
+  overflow-x: auto;
+  margin: 0.9em 0;
+}
+.prose-diary pre code { background: none; border: none; padding: 0; }
+.prose-diary a { color: var(--accent-hover); text-decoration: underline; }
+.prose-diary strong { font-weight: 650; }
+.prose-diary hr { border: none; border-top: 1px solid var(--border); margin: 1.5em 0; }
+
+/* Subtle, restrained motion. */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-in {
+  animation: fade-in-up 0.25s ease both;
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+/* Loading skeleton shimmer. */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-hover) 37%, var(--surface-2) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: 8px;
+}
+@keyframes shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}

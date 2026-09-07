@@ -1,0 +1,557 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import Icon from '../../components/ui/Icon.astro';
+import { listConversations, getConversation, getMessages } from '../../lib/chat/conversations';
+import { renderMarkdown } from '../../lib/utils/markdown';
+import { formatLongDate } from '../../lib/utils/date';
+import { getSettings } from '../../lib/settings/settings';
+
+export const prerender = false;
+
+const providerKind = getSettings().providerKind;
+const conversations = listConversations();
+const forceNew = Astro.url.searchParams.has('new');
+const activeId = forceNew ? null : (Astro.url.searchParams.get('c') ?? conversations[0]?.id ?? null);
+const active = activeId ? getConversation(activeId) : null;
+const messages = active ? getMessages(active.id) : [];
+const today = formatLongDate(new Date().toISOString());
+
+const suggestions = [
+  'Today was a good day…',
+  'I’ve been feeling stressed lately',
+  'Let me tell you what happened today',
+];
+---
+<AppLayout title="Chat">
+  <div class="flex h-full overflow-hidden">
+    <!-- LEFT: conversation -->
+    <section class="flex min-w-0 flex-1 flex-col">
+      <header class="flex items-center gap-2 border-b px-5 py-2.5" style="border-color: var(--border)">
+        <Icon name="chat" size={18} class="shrink-0" />
+        <div class="min-w-0">
+          <div class="truncate text-sm font-semibold">Journaling companion</div>
+          <div class="text-[11px]" style="color: var(--text-faint)">Talk it through — your entry builds on the right</div>
+        </div>
+
+        <div class="ml-auto flex items-center gap-1.5">
+          {
+            conversations.length > 0 && (
+              <select id="conv-switcher" class="input hidden w-40 py-1.5 text-xs sm:block" aria-label="Switch conversation">
+                {!active && <option value="" selected>New conversation</option>}
+                {conversations.map((c) => (
+                  <option value={c.id} selected={c.id === active?.id}>{c.title}</option>
+                ))}
+              </select>
+            )
+          }
+          <button type="button" id="draft-toggle" class="btn px-2.5 py-1.5 text-xs lg:hidden">
+            <Icon name="book" size={15} /> Draft
+          </button>
+          <a href="/chat?new=1" class="btn btn-ghost px-2.5 py-1.5 text-xs" id="new-chat"><Icon name="plus" size={15} /> New</a>
+        </div>
+      </header>
+
+      <div id="messages" class="flex-1 overflow-y-auto px-5 py-5" data-conversation-id={active?.id ?? ''} data-provider-kind={providerKind}>
+        <div class="mx-auto max-w-2xl space-y-4">
+          {
+            messages.length === 0 && (
+              <div class="card animate-in px-5 py-6">
+                <h2 class="text-base font-semibold">Let’s talk through your day</h2>
+                <p class="mt-1 text-sm" style="color: var(--text-muted)">
+                  Tell me how your day went — I’ll listen and ask the occasional question. Your diary entry takes
+                  shape on the right as we talk. You can say things like <em>“change the walk to a run”</em> or
+                  <em>“make it shorter”</em>, then hit <strong>Save</strong> when it feels right.
+                </p>
+                <div class="mt-4 flex flex-wrap gap-2">
+                  {suggestions.map((s) => (
+                    <button type="button" class="chip cursor-pointer text-xs suggestion" data-q={s}>{s}</button>
+                  ))}
+                </div>
+              </div>
+            )
+          }
+          {
+            messages.map((m) => (
+              <div class={`chat-msg ${m.role}`} data-role={m.role}>
+                {m.role === 'assistant' ? (
+                  <div class="assistant-bubble">
+                    <div class="prose-diary text-sm" set:html={renderMarkdown(m.content)} />
+                    {m.citations.length > 0 && (
+                      <div class="mt-3 flex flex-wrap gap-1.5 border-t pt-2.5" style="border-color: var(--border)">
+                        <span class="text-[11px] font-medium" style="color: var(--text-faint)">Saved:</span>
+                        {m.citations.map((c) => (
+                          <a href={`/diary/${c.entryId}`} class="chip chip-accent text-[11px]" title={c.excerpt}><Icon name="book" size={11} /> {c.date}</a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div class="user-bubble">{m.content}</div>
+                )}
+              </div>
+            ))
+          }
+        </div>
+      </div>
+
+      <div class="border-t px-5 py-3" style="border-color: var(--border)">
+        <div class="mx-auto flex max-w-2xl items-end gap-2">
+          <textarea
+            id="chat-input"
+            rows="1"
+            placeholder="Talk about your day…  (Enter to send · Shift+Enter for newline)"
+            class="input max-h-40 flex-1 resize-none py-2.5"
+          ></textarea>
+          <button id="send-btn" class="btn btn-primary h-[42px] px-3.5" aria-label="Send">
+            <Icon name="send" size={17} />
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: live draft entry -->
+    <aside
+      id="draft-panel"
+      class="hidden w-[380px] shrink-0 flex-col border-l lg:flex"
+      style="background: var(--surface-2); border-color: var(--border)"
+    >
+      <header class="flex items-center gap-2 border-b px-4 py-2.5" style="border-color: var(--border)">
+        <Icon name="edit" size={16} />
+        <div class="min-w-0">
+          <div class="text-sm font-semibold">Draft entry</div>
+          <div class="text-[11px]" style="color: var(--text-faint)">{today}</div>
+        </div>
+        <button type="button" id="draft-close" class="btn btn-ghost ml-auto px-1.5 py-1 lg:hidden" aria-label="Close draft">
+          <Icon name="x" size={16} />
+        </button>
+        <button type="button" id="save-draft" class="btn btn-primary ml-auto px-3 py-1.5 text-xs lg:ml-auto" disabled>
+          <Icon name="check" size={15} /> <span id="save-label">Save</span>
+        </button>
+      </header>
+
+      <div class="flex-1 overflow-y-auto px-5 py-5">
+        <div id="draft-empty" class="flex h-full flex-col items-center justify-center text-center">
+          <div class="mb-3 rounded-full p-3" style="background: var(--accent-soft)">
+            <Icon name="edit" size={22} class="text-[color:var(--accent-hover)]" />
+          </div>
+          <p class="text-sm" style="color: var(--text-muted)">Your entry will appear here<br />as you talk.</p>
+        </div>
+        <article id="draft-body" class="prose-diary hidden text-[0.98rem]"></article>
+      </div>
+
+      <footer class="flex items-center gap-2 border-t px-4 py-2 text-[11px]" style="border-color: var(--border); color: var(--text-faint)">
+        <span id="draft-status" class="flex items-center gap-1.5"><Icon name="sparkles" size={12} /> Updates as you chat</span>
+        <a id="open-entry" href="#" class="ml-auto hidden items-center gap-1 hover:underline" style="color: var(--text-muted)">
+          Open in editor <Icon name="chevronRight" size={12} />
+        </a>
+      </footer>
+    </aside>
+
+    <div id="draft-backdrop" class="fixed inset-0 z-30 hidden bg-black/30 lg:hidden"></div>
+  </div>
+</AppLayout>
+
+<!-- is:global so JS-created message bubbles (which lack Astro's scope attribute)
+     are styled the same as server-rendered ones. -->
+<style is:global>
+  .chat-msg { display: flex; }
+  .chat-msg.user { justify-content: flex-end; }
+  .user-bubble {
+    max-width: 85%;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    padding: 0.6rem 0.9rem;
+    border-radius: 1rem 1rem 0.25rem 1rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .assistant-bubble {
+    max-width: 92%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 0.75rem 1rem;
+    border-radius: 1rem 1rem 1rem 0.25rem;
+    box-shadow: var(--shadow);
+  }
+  .typing-dot { animation: blink 1.2s infinite both; }
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+
+  /* Small-screen draft drawer */
+  #draft-panel.drawer-open {
+    display: flex;
+    position: fixed;
+    inset: 0 0 0 auto;
+    width: min(420px, 92vw);
+    z-index: 40;
+    box-shadow: var(--shadow);
+  }
+  #draft-body.updating { opacity: 0.55; transition: opacity 0.15s ease; }
+</style>
+
+<script>
+  import { showToast } from '../../lib/client/toast';
+  import { renderMarkdown } from '../../lib/utils/markdown';
+  import { apiSend } from '../../lib/client/api';
+  import { browserAIAvailability, browserComplete, ensureModelReady } from '../../lib/client/browser-ai';
+  import type { Citation, ProviderChatMessage } from '@/types';
+
+  const messagesEl = document.getElementById('messages') as HTMLElement;
+  const listWrap = messagesEl.querySelector('.max-w-2xl') as HTMLElement;
+  const input = document.getElementById('chat-input') as HTMLTextAreaElement;
+  const sendBtn = document.getElementById('send-btn') as HTMLButtonElement;
+
+  const draftPanel = document.getElementById('draft-panel') as HTMLElement;
+  const draftBody = document.getElementById('draft-body') as HTMLElement;
+  const draftEmpty = document.getElementById('draft-empty') as HTMLElement;
+  const draftStatus = document.getElementById('draft-status') as HTMLElement;
+  const saveBtn = document.getElementById('save-draft') as HTMLButtonElement;
+  const saveLabel = document.getElementById('save-label') as HTMLElement;
+  const openEntry = document.getElementById('open-entry') as HTMLAnchorElement;
+  const backdrop = document.getElementById('draft-backdrop') as HTMLElement;
+
+  let conversationId = messagesEl.dataset.conversationId || null;
+  let currentDraft = '';
+  let savedEntryId: string | null = null;
+  let busy = false;
+
+  // In-browser (Gemini Nano) inference path.
+  let browserMode = messagesEl.dataset.providerKind === 'gemini-nano';
+  let browserVerified = false;
+  // Must run as the FIRST await inside a click/keypress handler so the model
+  // download (if needed) happens within the browser's user-activation window.
+  async function ensureBrowser(): Promise<boolean> {
+    if (!browserMode) return false;
+    const a = await browserAIAvailability();
+    if (a === 'no-api' || a === 'unavailable') {
+      browserMode = false;
+      showToast(
+        a === 'no-api'
+          ? 'This browser has no on-device AI (needs Chrome ≥138 with the Prompt API). Using the built-in provider.'
+          : 'Gemini Nano is unavailable on this device — using the built-in provider.',
+        'error',
+        6000,
+      );
+      return false;
+    }
+    try {
+      if (a !== 'available') showToast('Downloading Gemini Nano — one-time, may take a few minutes…', 'info', 8000);
+      await ensureModelReady((pct) => {
+        draftStatus.textContent = `Downloading model… ${pct}%`;
+      });
+      // One-time sanity probe: some Chromium builds expose the API but only echo
+      // the input (no real model). Detect that and fall back to the server.
+      if (!browserVerified) {
+        await browserComplete([{ role: 'user', content: 'Reply with the single word: ready.' }]);
+        browserVerified = true;
+      }
+      return true;
+    } catch (e) {
+      browserMode = false;
+      showToast(
+        (e as Error).message === 'echo-stub'
+          ? 'This browser exposes the AI API but has no working on-device model — using the built-in provider. (In Chrome, make sure Gemini Nano has finished downloading.)'
+          : 'Could not start Gemini Nano — using the built-in provider.',
+        'error',
+        7000,
+      );
+      return false;
+    }
+  }
+
+  function renderCitations(bubble: HTMLElement, citations: Citation[]) {
+    if (!citations.length) return;
+    const box = document.createElement('div');
+    box.className = 'mt-3 flex flex-wrap gap-1.5 border-t pt-2.5';
+    box.style.borderColor = 'var(--border)';
+    box.innerHTML =
+      '<span class="text-[11px] font-medium" style="color: var(--text-faint)">Sources:</span>' +
+      citations
+        .map((c) => `<a href="/diary/${c.entryId}" class="chip chip-accent text-[11px]" title="${escapeAttr(c.excerpt)}">${escapeAttr(c.date)}</a>`)
+        .join('');
+    bubble.appendChild(box);
+  }
+
+  // Recover a previously-saved entry id for this conversation (survives reload).
+  if (conversationId) {
+    try {
+      savedEntryId = sessionStorage.getItem(`diary-saved-${conversationId}`);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const scrollToBottom = () => (messagesEl.scrollTop = messagesEl.scrollHeight);
+
+  function autoGrow() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+  }
+  input?.addEventListener('input', autoGrow);
+
+  function addUserBubble(text: string) {
+    const wrap = document.createElement('div');
+    wrap.className = 'chat-msg user';
+    const b = document.createElement('div');
+    b.className = 'user-bubble';
+    b.textContent = text;
+    wrap.appendChild(b);
+    listWrap.appendChild(wrap);
+    scrollToBottom();
+  }
+
+  function addAssistantShell(): { bubble: HTMLElement; body: HTMLElement } {
+    const wrap = document.createElement('div');
+    wrap.className = 'chat-msg assistant';
+    const bubble = document.createElement('div');
+    bubble.className = 'assistant-bubble';
+    const body = document.createElement('div');
+    body.className = 'prose-diary text-sm';
+    body.innerHTML = '<span class="typing-dot">●</span> <span class="typing-dot">●</span> <span class="typing-dot">●</span>';
+    bubble.appendChild(body);
+    wrap.appendChild(bubble);
+    listWrap.appendChild(wrap);
+    scrollToBottom();
+    return { bubble, body };
+  }
+
+  function escapeAttr(s: string): string {
+    return s.replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  }
+
+  function renderDraft(text: string) {
+    currentDraft = text;
+    if (text.trim()) {
+      draftBody.innerHTML = renderMarkdown(text);
+      draftBody.classList.remove('hidden');
+      draftEmpty.classList.add('hidden');
+      saveBtn.disabled = false;
+    } else {
+      draftBody.classList.add('hidden');
+      draftEmpty.classList.remove('hidden');
+      saveBtn.disabled = true;
+    }
+  }
+
+  async function refreshDraft() {
+    if (!conversationId) return;
+    draftBody.classList.add('updating');
+    draftStatus.textContent = 'Updating draft…';
+    try {
+      if (browserMode) {
+        const { messages } = await apiSend<{ messages: ProviderChatMessage[] }>(
+          '/api/chat/draft-messages',
+          'POST',
+          { conversationId },
+        );
+        renderDraft(messages.length ? (await browserComplete(messages)).trim() : '');
+      } else {
+        const res = await apiSend<{ draft: string }>('/api/chat/draft', 'POST', { conversationId });
+        renderDraft(res.draft);
+      }
+      draftStatus.textContent = 'Draft updated';
+    } catch {
+      draftStatus.textContent = 'Could not update draft';
+    } finally {
+      draftBody.classList.remove('updating');
+    }
+  }
+
+  async function ensureConversation(): Promise<string> {
+    if (conversationId) return conversationId;
+    const conv = await apiSend<{ id: string }>('/api/chat/conversations', 'POST', {});
+    conversationId = conv.id;
+    messagesEl.dataset.conversationId = conv.id;
+    history.replaceState(null, '', `/chat?c=${conv.id}`);
+    return conv.id;
+  }
+
+  async function send(text: string) {
+    if (busy || !text.trim()) return;
+    busy = true;
+    sendBtn.disabled = true;
+    input.disabled = true;
+
+    listWrap.querySelector('.card')?.remove(); // clear empty-state card
+    addUserBubble(text);
+    input.value = '';
+    autoGrow();
+    const { body } = addAssistantShell();
+
+    try {
+      // Warm the on-device model FIRST so any download stays in the user-gesture
+      // window; only then hit the server for retrieval.
+      const useBrowser = await ensureBrowser();
+      const convId = await ensureConversation();
+
+      if (useBrowser) {
+        // Retrieval on the server, inference on-device, persistence on the server.
+        const prep = await apiSend<{ messages: ProviderChatMessage[]; citations: Citation[] }>(
+          '/api/chat/prepare',
+          'POST',
+          { conversationId: convId, content: text },
+        );
+        let answer = '';
+        let started = false;
+        answer = await browserComplete(prep.messages, (delta) => {
+          if (!started) { body.innerHTML = ''; started = true; }
+          answer += delta;
+          body.innerHTML = renderMarkdown(answer);
+          scrollToBottom();
+        });
+        if (!answer.trim()) { body.textContent = '(no response)'; }
+        else { body.innerHTML = renderMarkdown(answer); }
+        const bubbleEl = body.closest('.assistant-bubble') as HTMLElement | null;
+        if (bubbleEl) renderCitations(bubbleEl, prep.citations);
+        await apiSend('/api/chat/save-assistant', 'POST', {
+          conversationId: convId,
+          content: answer,
+          citations: prep.citations,
+        });
+      } else {
+        const res = await fetch('/api/chat/message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversationId: convId, content: text }),
+        });
+        if (!res.ok || !res.body) throw new Error(`Request failed (${res.status})`);
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let answer = '';
+        let started = false;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split('\n\n');
+          buffer = parts.pop() ?? '';
+          for (const part of parts) {
+            const ev = part.match(/^event: (.+)$/m);
+            const dt = part.match(/^data: (.+)$/m);
+            if (!ev || !dt) continue;
+            const data = JSON.parse(dt[1]!);
+            if (ev[1] === 'delta') {
+              if (!started) { body.innerHTML = ''; started = true; }
+              answer += data as string;
+              body.innerHTML = renderMarkdown(answer);
+              scrollToBottom();
+            } else if (ev[1] === 'error') {
+              throw new Error((data as { message: string }).message);
+            }
+          }
+        }
+        if (!started) body.textContent = answer || '(no response)';
+      }
+      await refreshDraft(); // rebuild the entry from the updated conversation
+    } catch (e) {
+      body.innerHTML = `<span style="color: var(--danger)">${(e as Error).message}</span>`;
+      showToast('Chat failed', 'error');
+    } finally {
+      busy = false;
+      sendBtn.disabled = false;
+      input.disabled = false;
+      input.focus();
+    }
+  }
+
+  async function saveDraft() {
+    if (!conversationId || !currentDraft.trim() || busy) return;
+    busy = true;
+    saveBtn.disabled = true;
+    saveLabel.textContent = 'Saving…';
+    try {
+      const res = await apiSend<{ entry: { id: string }; assistantMessage: { content: string; citations: Citation[] } }>(
+        '/api/chat/summarize-entry',
+        'POST',
+        { conversationId, content: currentDraft, entryId: savedEntryId },
+      );
+      savedEntryId = res.entry.id;
+      try {
+        sessionStorage.setItem(`diary-saved-${conversationId}`, savedEntryId);
+      } catch {
+        /* ignore */
+      }
+      // Show the confirmation in the conversation.
+      const { bubble, body } = addAssistantShell();
+      body.innerHTML = renderMarkdown(res.assistantMessage.content);
+      if (res.assistantMessage.citations.length) {
+        const box = document.createElement('div');
+        box.className = 'mt-3 flex flex-wrap gap-1.5 border-t pt-2.5';
+        box.style.borderColor = 'var(--border)';
+        box.innerHTML =
+          '<span class="text-[11px] font-medium" style="color: var(--text-faint)">Saved:</span>' +
+          res.assistantMessage.citations
+            .map((c) => `<a href="/diary/${c.entryId}" class="chip chip-accent text-[11px]" title="${escapeAttr(c.excerpt)}">${escapeAttr(c.date)}</a>`)
+            .join('');
+        bubble.appendChild(box);
+      }
+      openEntry.href = `/diary/${savedEntryId}`;
+      openEntry.classList.remove('hidden');
+      openEntry.classList.add('flex');
+      draftStatus.textContent = 'Saved to your diary';
+      saveLabel.textContent = 'Update';
+      showToast('Saved to your diary', 'success');
+      scrollToBottom();
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+      saveLabel.textContent = savedEntryId ? 'Update' : 'Save';
+    } finally {
+      busy = false;
+      saveBtn.disabled = false;
+    }
+  }
+
+  // Events
+  input?.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' && !e.shiftKey) || ((e.metaKey || e.ctrlKey) && e.key === 'Enter')) {
+      e.preventDefault();
+      void send(input.value);
+    }
+  });
+  sendBtn?.addEventListener('click', () => void send(input.value));
+  saveBtn?.addEventListener('click', () => void saveDraft());
+
+  document.querySelectorAll<HTMLButtonElement>('.suggestion').forEach((btn) =>
+    btn.addEventListener('click', () => void send(btn.dataset.q ?? '')),
+  );
+
+  document.getElementById('new-chat')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    window.location.href = '/chat?new=1';
+  });
+
+  document.getElementById('conv-switcher')?.addEventListener('change', (e) => {
+    const id = (e.target as HTMLSelectElement).value;
+    window.location.href = id ? `/chat?c=${id}` : '/chat?new=1';
+  });
+
+  // Small-screen draft drawer
+  const openDrawer = () => {
+    draftPanel.classList.add('drawer-open');
+    backdrop.classList.remove('hidden');
+  };
+  const closeDrawer = () => {
+    draftPanel.classList.remove('drawer-open');
+    backdrop.classList.add('hidden');
+  };
+  document.getElementById('draft-toggle')?.addEventListener('click', openDrawer);
+  document.getElementById('draft-close')?.addEventListener('click', closeDrawer);
+  backdrop?.addEventListener('click', closeDrawer);
+
+  // If reopening a saved conversation, reflect saved state.
+  if (savedEntryId) {
+    openEntry.href = `/diary/${savedEntryId}`;
+    openEntry.classList.remove('hidden');
+    openEntry.classList.add('flex');
+    saveLabel.textContent = 'Update';
+  }
+  if (conversationId && listWrap.querySelector('.chat-msg')) void refreshDraft();
+  input?.focus();
+  scrollToBottom();
+</script>

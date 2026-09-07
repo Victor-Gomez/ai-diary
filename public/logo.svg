@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   version="1.1"
+   viewBox="0 0 450 450"
+   id="svg15"
+   sodipodi:docname="logo.svg"
+   inkscape:version="1.4.4 (dcaf3e7, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview15"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="0.59166667"
+     inkscape:cx="5.0704225"
+     inkscape:cy="232.39437"
+     inkscape:window-width="2560"
+     inkscape:window-height="1351"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g15" />
+  <defs
+     id="defs5">
+    <linearGradient
+       id="a"
+       x1="231.33"
+       x2="544.66"
+       y1="101.51"
+       y2="424.6"
+       gradientTransform="matrix(1 0 0 1.1027 -116.48 -20.188)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         stop-color="#bdf47d"
+         offset="0"
+         id="stop1" />
+      <stop
+         stop-color="#8cce41"
+         offset="1"
+         id="stop2" />
+    </linearGradient>
+    <linearGradient
+       id="b"
+       x1="231.33"
+       x2="231.33"
+       y1="427.98"
+       y2="381.67"
+       gradientTransform="matrix(1 0 0 1.1027 -116.48 15.324)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         stop-color="#f0f0f0"
+         offset="0"
+         id="stop3" />
+      <stop
+         stop-color="#c8c8c8"
+         offset="1"
+         id="stop4" />
+    </linearGradient>
+    <filter
+       id="c"
+       x="-0.075"
+       y="-0.060681452"
+       width="1.15"
+       height="1.1213629"
+       color-interpolation-filters="sRGB">
+      <feFlood
+         flood-color="rgb(0,0,0)"
+         flood-opacity=".49804"
+         result="flood"
+         id="feFlood4" />
+      <feComposite
+         in="flood"
+         in2="SourceGraphic"
+         operator="in"
+         result="composite1"
+         id="feComposite4" />
+      <feGaussianBlur
+         in="composite1"
+         result="blur"
+         stdDeviation="10"
+         id="feGaussianBlur4" />
+      <feOffset
+         dx="0"
+         dy="0"
+         result="offset"
+         id="feOffset4" />
+      <feComposite
+         in="SourceGraphic"
+         in2="offset"
+         result="composite2"
+         id="feComposite5" />
+    </filter>
+  </defs>
+  <g
+     transform="translate(-91.606 -64.002)"
+     stroke-width="0"
+     id="g15">
+    <g
+       transform="translate(41.757)"
+       filter="url(#c)"
+       id="g6">
+      <rect
+         x="114.85"
+         y="127.26"
+         width="320"
+         height="360"
+         ry="20"
+         fill="url(#b)"
+         id="rect5" />
+      <rect
+         x="114.85"
+         y="91.752"
+         width="320"
+         height="350"
+         ry="20"
+         fill="url(#a)"
+         id="rect6" />
+    </g>
+    <g
+       transform="translate(41.106)"
+       fill="#4e9305"
+       id="g10">
+      <rect
+         x="255"
+         y="165"
+         width="120"
+         height="26"
+         rx="7"
+         ry="7"
+         id="rect7" />
+      <rect
+         x="310"
+         y="303"
+         width="65"
+         height="26"
+         rx="7"
+         ry="7"
+         id="rect8-1"
+         style="display:inline" />
+      <rect
+         x="170"
+         y="303"
+         width="120"
+         height="26"
+         rx="7"
+         ry="7"
+         id="rect8-9-7"
+         style="display:inline" />
+      <rect
+         x="170"
+         y="234"
+         width="92.5"
+         height="26"
+         rx="7"
+         ry="7"
+         id="rect9" />
+      <rect
+         x="282.5"
+         y="234"
+         width="92.5"
+         height="26"
+         rx="7"
+         ry="7"
+         id="rect9-8" />
+      <rect
+         x="170"
+         y="372"
+         width="92.5"
+         height="26"
+         rx="7"
+         ry="7"
+         id="rect9-1"
+         style="display:inline" />
+      <rect
+         x="282.5"
+         y="372"
+         width="92.5"
+         height="26"
+         rx="7"
+         ry="7"
+         id="rect9-8-5"
+         style="display:inline" />
+      <rect
+         x="170"
+         y="165"
+         width="65"
+         height="26"
+         rx="7"
+         ry="7"
+         id="rect15" />
+    </g>
+    <g
+       transform="translate(41.53)"
+       fill="#4e9305"
+       id="g14">
+      <rect
+         x="152"
+         y="66"
+         width="36"
+         height="52"
+         ry="18"
+         id="rect11" />
+      <rect
+         x="222"
+         y="66"
+         width="36"
+         height="52"
+         ry="18"
+         id="rect12" />
+      <rect
+         x="292"
+         y="66"
+         width="36"
+         height="52"
+         ry="18"
+         id="rect13" />
+      <rect
+         x="362"
+         y="66"
+         width="36"
+         height="52"
+         ry="18"
+         id="rect14" />
+    </g>
+  </g>
+</svg>

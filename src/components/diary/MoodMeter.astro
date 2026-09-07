@@ -1,0 +1,24 @@
+---
+interface Props {
+  label: string;
+  value: number; // 0..1
+  color?: string; // CSS color for filled dots
+  dots?: number;
+}
+const { label, value, color = 'var(--accent)', dots = 5 } = Astro.props;
+const filled = Math.round(Math.max(0, Math.min(1, value)) * dots);
+---
+<div class="flex items-center gap-2 text-xs">
+  <span class="w-14 shrink-0" style="color: var(--text-muted)">{label}</span>
+  <span class="flex items-center gap-1" aria-label={`${label}: ${Math.round(value * 100)}%`}>
+    {
+      Array.from({ length: dots }).map((_, i) => (
+        <span
+          class="inline-block h-2 w-2 rounded-full"
+          style={`background: ${i < filled ? color : 'var(--border-strong)'}`}
+        />
+      ))
+    }
+  </span>
+  <span class="ml-auto tabular-nums" style="color: var(--text-faint)">{Math.round(value * 100)}</span>
+</div>

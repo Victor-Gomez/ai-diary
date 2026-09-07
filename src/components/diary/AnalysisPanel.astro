@@ -1,0 +1,126 @@
+---
+import MoodMeter from './MoodMeter.astro';
+import Icon from '../ui/Icon.astro';
+import { relativeTime } from '../../lib/utils/date';
+import type { EntryAnalysis } from '@/types';
+
+interface Props {
+  entryId: string;
+  analysis: EntryAnalysis | null;
+  analysisEnabled: boolean;
+}
+const { entryId, analysis, analysisEnabled } = Astro.props;
+
+const groups: { label: string; items: string[] }[] = analysis
+  ? [
+      { label: 'Topics', items: analysis.topics },
+      { label: 'People', items: analysis.people },
+      { label: 'Places', items: analysis.places },
+      { label: 'Activities', items: analysis.activities },
+    ].filter((g) => g.items.length > 0)
+  : [];
+---
+<div class="p-4" data-analysis-panel data-entry-id={entryId}>
+  <div class="mb-3 flex items-center justify-between">
+    <h2 class="flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase" style="color: var(--text-faint)">
+      <Icon name="sparkles" size={13} /> Reflection
+    </h2>
+    {
+      analysisEnabled && (
+        <button type="button" class="btn btn-ghost px-2 py-1 text-xs" data-analyze-btn>
+          <span data-analyze-label>{analysis ? 'Re-analyze' : 'Analyze'}</span>
+        </button>
+      )
+    }
+  </div>
+
+  {
+    !analysisEnabled ? (
+      <p class="text-xs leading-relaxed" style="color: var(--text-muted)">
+        AI analysis is turned off. Enable it in <a href="/settings" class="underline">Settings</a> to
+        see mood, topics and reflections. Your diary text is never modified by analysis.
+      </p>
+    ) : analysis ? (
+      <div class="space-y-4 animate-in">
+        <div class="space-y-1.5">
+          <MoodMeter label="Mood" value={analysis.mood} color="var(--accent)" />
+          <MoodMeter label="Stress" value={analysis.stress} color="#d9852b" />
+          <MoodMeter label="Energy" value={analysis.energy} color="#3b82c4" />
+        </div>
+
+        {analysis.summary && (
+          <div>
+            <div class="mb-1 text-[11px] font-semibold uppercase tracking-wide" style="color: var(--text-faint)">Summary</div>
+            <p class="text-sm leading-relaxed" style="color: var(--text-muted)">{analysis.summary}</p>
+          </div>
+        )}
+
+        {groups.map((g) => (
+          <div>
+            <div class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide" style="color: var(--text-faint)">{g.label}</div>
+            <div class="flex flex-wrap gap-1.5">
+              {g.items.map((it) => (
+                <a href={`/search?${g.label === 'People' ? 'people' : g.label === 'Topics' ? 'topics' : 'q'}=${encodeURIComponent(it)}`} class="chip text-[11px] hover:brightness-95">
+                  {g.label === 'Topics' ? `#${it}` : it}
+                </a>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <p class="border-t pt-3 text-[11px] leading-relaxed" style="border-color: var(--border); color: var(--text-faint)">
+          Derived from your text {relativeTime(analysis.updatedAt)}. Interpretations only — your original entry is unchanged.
+        </p>
+      </div>
+    ) : (
+      <div class="animate-in">
+        <p class="text-xs leading-relaxed" style="color: var(--text-muted)">
+          No reflection yet. Analyze this entry to extract mood, topics and people. The original text
+          is never changed.
+        </p>
+      </div>
+    )
+  }
+
+  <div data-analyze-loading class="mt-3 hidden space-y-2">
+    <div class="skeleton h-3 w-2/3"></div>
+    <div class="skeleton h-3 w-1/2"></div>
+    <div class="skeleton h-3 w-3/5"></div>
+  </div>
+</div>
+
+<script>
+  import { showToast } from '../../lib/client/toast';
+  import { apiSend } from '../../lib/client/api';
+
+  const panel = document.querySelector<HTMLElement>('[data-analysis-panel]');
+  const btn = panel?.querySelector<HTMLButtonElement>('[data-analyze-btn]');
+  const label = panel?.querySelector<HTMLElement>('[data-analyze-label]');
+  const loading = panel?.querySelector<HTMLElement>('[data-analyze-loading]');
+
+  btn?.addEventListener('click', async () => {
+    const id = panel?.dataset.entryId;
+    if (!id) return;
+    btn.disabled = true;
+    if (label) label.textContent = 'Analyzing…';
+    loading?.classList.remove('hidden');
+    try {
+      const res = await apiSend<{ analysis: unknown; skipped?: boolean }>(
+        `/api/entries/${id}/analyze`,
+        'POST',
+      );
+      if (res.skipped) {
+        showToast('Analysis is disabled in Settings', 'info');
+      } else {
+        showToast('Reflection updated', 'success');
+        window.location.reload();
+      }
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    } finally {
+      btn.disabled = false;
+      if (label) label.textContent = 'Re-analyze';
+      loading?.classList.add('hidden');
+    }
+  });
+</script>

@@ -1,0 +1,211 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import EntryCard from '../../components/diary/EntryCard.astro';
+import Icon from '../../components/ui/Icon.astro';
+import { searchEntries } from '../../lib/search/search';
+import { collectFacets } from '../../lib/diary/analysis';
+import type { SearchOptions } from '@/types';
+
+export const prerender = false;
+
+const p = Astro.url.searchParams;
+const q = p.get('q') ?? '';
+const selTopics = (p.get('topics') ?? '').split(',').filter(Boolean);
+const selPeople = (p.get('people') ?? '').split(',').filter(Boolean);
+const from = p.get('from') ?? '';
+const to = p.get('to') ?? '';
+const minMood = p.get('minMood') ?? '';
+
+const options: SearchOptions = { limit: 100 };
+if (selTopics.length) options.topics = selTopics;
+if (selPeople.length) options.people = selPeople;
+if (from) options.from = from;
+if (to) options.to = to;
+if (minMood) options.minMood = Number(minMood);
+
+const results = searchEntries(q, options);
+const facets = collectFacets();
+const asWith = results.map((r) => ({ ...r.entry, analysis: r.analysis }));
+---
+<AppLayout title="Search">
+  <div class="mx-auto max-w-3xl px-6 py-6 md:px-10">
+    <h1 class="text-2xl font-semibold tracking-tight">Search</h1>
+    <p class="mt-0.5 text-sm" style="color: var(--text-muted)">Full-text search across your encrypted diary.</p>
+
+    <!-- Search bar -->
+    <div class="mt-4 flex items-center gap-2 rounded-xl px-3" style="background: var(--surface); border: 1px solid var(--border-strong)">
+      <Icon name="search" size={18} class="opacity-60" />
+      <input
+        id="q"
+        type="text"
+        value={q}
+        placeholder="Search entries…  (press ⌘/Ctrl+K anywhere)"
+        class="w-full bg-transparent py-2.5 text-sm outline-none"
+        autocomplete="off"
+      />
+    </div>
+
+    <!-- Filters -->
+    <details class="mt-3" open={selTopics.length > 0 || selPeople.length > 0 || !!from || !!to || !!minMood}>
+      <summary class="cursor-pointer list-none text-xs font-medium" style="color: var(--text-muted)">
+        <span class="inline-flex items-center gap-1"><Icon name="settings" size={13} /> Filters</span>
+      </summary>
+      <div class="card mt-2 space-y-3 p-3">
+        <div class="flex flex-wrap items-center gap-3">
+          <label class="text-xs" style="color: var(--text-muted)">From
+            <input id="from" type="date" value={from} class="input mt-1 w-auto text-xs" />
+          </label>
+          <label class="text-xs" style="color: var(--text-muted)">To
+            <input id="to" type="date" value={to} class="input mt-1 w-auto text-xs" />
+          </label>
+          <label class="text-xs" style="color: var(--text-muted)">Min mood
+            <select id="minMood" class="input mt-1 w-auto text-xs">
+              <option value="" selected={minMood === ''}>Any</option>
+              <option value="0.6" selected={minMood === '0.6'}>Positive (60%+)</option>
+              <option value="0.4" selected={minMood === '0.4'}>Neutral+ (40%+)</option>
+            </select>
+          </label>
+        </div>
+
+        {
+          facets.topics.length > 0 && (
+            <div>
+              <div class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide" style="color: var(--text-faint)">Topics</div>
+              <div class="flex flex-wrap gap-1.5">
+                {facets.topics.map((t) => (
+                  <button type="button" class={`chip cursor-pointer text-[11px] filter-topic ${selTopics.includes(t) ? 'chip-accent' : ''}`} data-value={t} aria-pressed={selTopics.includes(t)}>#{t}</button>
+                ))}
+              </div>
+            </div>
+          )
+        }
+        {
+          facets.people.length > 0 && (
+            <div>
+              <div class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide" style="color: var(--text-faint)">People</div>
+              <div class="flex flex-wrap gap-1.5">
+                {facets.people.map((t) => (
+                  <button type="button" class={`chip cursor-pointer text-[11px] filter-person ${selPeople.includes(t) ? 'chip-accent' : ''}`} data-value={t} aria-pressed={selPeople.includes(t)}>{t}</button>
+                ))}
+              </div>
+            </div>
+          )
+        }
+      </div>
+    </details>
+
+    <!-- Results -->
+    <div class="mt-4 text-xs" id="result-count" style="color: var(--text-faint)">
+      {results.length} {results.length === 1 ? 'result' : 'results'}
+    </div>
+    <div id="results" class="mt-2 flex flex-col gap-3">
+      {
+        asWith.length === 0 ? (
+          <div class="card px-6 py-12 text-center">
+            <p class="text-sm" style="color: var(--text-muted)">No entries match your search.</p>
+          </div>
+        ) : (
+          asWith.map((entry, i) => <EntryCard entry={entry} excerptText={results[i]!.excerpt} />)
+        )
+      }
+    </div>
+  </div>
+</AppLayout>
+
+<script>
+  import { apiGet } from '../../lib/client/api';
+  import type { SearchResult } from '@/types';
+
+  const qEl = document.getElementById('q') as HTMLInputElement;
+  const fromEl = document.getElementById('from') as HTMLInputElement | null;
+  const toEl = document.getElementById('to') as HTMLInputElement | null;
+  const moodEl = document.getElementById('minMood') as HTMLSelectElement | null;
+  const resultsEl = document.getElementById('results') as HTMLElement;
+  const countEl = document.getElementById('result-count') as HTMLElement;
+
+  const selTopics = new Set<string>(
+    Array.from(document.querySelectorAll<HTMLButtonElement>('.filter-topic[aria-pressed="true"]')).map((b) => b.dataset.value!),
+  );
+  const selPeople = new Set<string>(
+    Array.from(document.querySelectorAll<HTMLButtonElement>('.filter-person[aria-pressed="true"]')).map((b) => b.dataset.value!),
+  );
+
+  let debounce: number | undefined;
+
+  function buildQuery(): string {
+    const params = new URLSearchParams();
+    if (qEl.value.trim()) params.set('q', qEl.value.trim());
+    if (selTopics.size) params.set('topics', [...selTopics].join(','));
+    if (selPeople.size) params.set('people', [...selPeople].join(','));
+    if (fromEl?.value) params.set('from', fromEl.value);
+    if (toEl?.value) params.set('to', toEl.value);
+    if (moodEl?.value) params.set('minMood', moodEl.value);
+    return params.toString();
+  }
+
+  function esc(s: string): string {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function renderCard(r: SearchResult): string {
+    const date = new Date(r.entry.createdAt).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    const mood = r.analysis ? Math.round(r.analysis.mood * 5) : 0;
+    const dots = Array.from({ length: 5 }, (_, i) => `<span style="display:inline-block;height:6px;width:6px;border-radius:999px;background:${i < mood ? 'var(--accent)' : 'var(--border-strong)'}"></span>`).join('');
+    const topics = (r.analysis?.topics ?? []).slice(0, 4).map((t) => `<span class="chip text-[11px]">#${esc(t)}</span>`).join(' ');
+    return `<a href="/diary/${r.entry.id}" class="card block px-4 py-3.5 transition-all hover:-translate-y-px">
+      <div class="flex items-center justify-between gap-3">
+        <span class="text-xs font-medium" style="color: var(--text-muted)">${date}</span>
+        ${r.analysis ? `<span class="flex gap-1">${dots}</span>` : ''}
+      </div>
+      <p class="mt-1.5 text-sm leading-relaxed" style="color: var(--text-muted)">${esc(r.excerpt)}</p>
+      ${topics ? `<div class="mt-2 flex flex-wrap gap-1.5">${topics}</div>` : ''}
+    </a>`;
+  }
+
+  async function run(pushUrl = true): Promise<void> {
+    const qs = buildQuery();
+    if (pushUrl) history.replaceState(null, '', qs ? `/search?${qs}` : '/search');
+    resultsEl.innerHTML = '<div class="skeleton h-24 w-full"></div><div class="skeleton h-24 w-full"></div>';
+    try {
+      const results = await apiGet<SearchResult[]>(`/api/search?${qs}`);
+      countEl.textContent = `${results.length} ${results.length === 1 ? 'result' : 'results'}`;
+      resultsEl.innerHTML = results.length
+        ? results.map(renderCard).join('')
+        : '<div class="card px-6 py-12 text-center"><p class="text-sm" style="color: var(--text-muted)">No entries match your search.</p></div>';
+    } catch {
+      resultsEl.innerHTML = '<div class="card px-6 py-12 text-center"><p class="text-sm" style="color: var(--danger)">Search failed. Please try again.</p></div>';
+    }
+  }
+
+  qEl.addEventListener('input', () => {
+    window.clearTimeout(debounce);
+    debounce = window.setTimeout(() => void run(), 180);
+  });
+  [fromEl, toEl, moodEl].forEach((el) => el?.addEventListener('change', () => void run()));
+
+  document.querySelectorAll<HTMLButtonElement>('.filter-topic').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.value!;
+      if (selTopics.has(v)) selTopics.delete(v);
+      else selTopics.add(v);
+      btn.setAttribute('aria-pressed', String(selTopics.has(v)));
+      btn.classList.toggle('chip-accent', selTopics.has(v));
+      void run();
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>('.filter-person').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.value!;
+      if (selPeople.has(v)) selPeople.delete(v);
+      else selPeople.add(v);
+      btn.setAttribute('aria-pressed', String(selPeople.has(v)));
+      btn.classList.toggle('chip-accent', selPeople.has(v));
+      void run();
+    });
+  });
+
+  qEl.focus();
+  qEl.setSelectionRange(qEl.value.length, qEl.value.length);
+</script>
