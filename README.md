@@ -57,23 +57,27 @@ pnpm start      # runs the Node server from ./dist
 > synchronous; hand-written, typed repository modules (`src/lib/**`) keep the DB
 > layer simple and dependency-light, as the brief allowed.
 
-## Encryption & keys
+## Master password & encryption
 
-The database is encrypted with a key resolved in `src/lib/db/key.ts`:
+The database is encrypted at rest using **SQLCipher (AES-256)**:
 
-1. `DIARY_DB_KEY` (env) — supply your own passphrase, or
-2. A random 32-byte key auto-generated once into `data/diary.key` (git-ignored).
+1. **Master Password Vault (`data/vault.json`):**
+   - On first run, you are prompted to set a Master Password.
+   - Your password derives a Key Encryption Key (KEK) using **PBKDF2** (100,000 iterations, SHA-256).
+   - The 256-bit database encryption key is encrypted with **AES-256-GCM** inside `data/vault.json`.
+   - The app locks automatically after inactivity or on demand via the **Lock** button in the sidebar.
+2. **Environment Variable Override:**
+   - You can also supply `DIARY_DB_KEY` directly via environment to bypass the prompt for automated workflows.
 
-> **Important:** Keep your key safe. A backup `.db` cannot be opened without it. In a future Tauri
-> build this is the single place to move key storage into the OS keychain.
+> **Important:** Keep your master password safe. There is no recovery backdoor — without your master password, your encrypted diary cannot be opened.
 
 ### Environment variables
 
 | Variable | Description | Default |
 | --- | --- | --- |
 | `DIARY_DB_PATH` | Path to the SQLite database file | `./data/diary.db` |
-| `DIARY_KEY_PATH` | Path to the auto-generated encryption key file | `./data/diary.key` |
-| `DIARY_DB_KEY` | Optional encryption passphrase (overrides key file) | *(none)* |
+| `DIARY_VAULT_PATH` | Path to the encrypted master key vault file | `./data/vault.json` |
+| `DIARY_DB_KEY` | Optional encryption passphrase override | *(none)* |
 | `DIARY_AI_KEY` | Bearer token / API key for remote AI endpoint | *(none)* |
 
 See [.env.example](.env.example) for reference.

@@ -1,6 +1,17 @@
 /** Typed fetch helpers for the browser. */
 
 async function handle<T>(res: Response): Promise<T> {
+  if (res.status === 401 && typeof window !== 'undefined') {
+    try {
+      const data = (await res.clone().json()) as { error?: string };
+      if (data.error === 'locked') {
+        window.location.href = '/unlock';
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
   if (!res.ok) {
     let msg = `Request failed (${res.status})`;
     try {

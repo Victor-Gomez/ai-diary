@@ -1,0 +1,284 @@
+---
+import '../styles/global.css';
+import Icon from '../components/ui/Icon.astro';
+import { isVaultSetup, hasLegacyKey } from '../lib/auth/vault';
+
+export const prerender = false;
+
+const isConfigured = isVaultSetup();
+const migratingLegacy = hasLegacyKey();
+const returnTo = Astro.url.searchParams.get('returnTo') || '/';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="color-scheme" content="light dark" />
+    <title>{isConfigured ? 'Unlock Diary' : 'Set Master Password'} · Diary</title>
+    <script is:inline>
+      try {
+        const t = localStorage.getItem('diary-theme');
+        if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    </script>
+  </head>
+  <body class="flex min-h-screen flex-col items-center justify-center p-4">
+    <!-- Theme Toggle -->
+    <div class="fixed top-4 right-4">
+      <button
+        type="button"
+        id="theme-toggle"
+        class="btn btn-ghost px-2.5 py-1.5"
+        aria-label="Toggle theme"
+        title="Toggle theme"
+      >
+        <Icon name="sun" size={17} class="theme-icon-light" />
+        <Icon name="moon" size={17} class="theme-icon-dark" />
+      </button>
+    </div>
+
+    <div class="card w-full max-w-md p-8 shadow-lg" style="box-shadow: var(--shadow)">
+      <!-- App Header -->
+      <div class="mb-6 flex flex-col items-center text-center">
+        <div class="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--surface-2)] border border-[var(--border)]">
+          <img src="/logo.svg" alt="Diary Logo" width="36" height="36" class="rounded-lg" />
+        </div>
+        <h1 class="text-xl font-semibold tracking-tight">
+          {isConfigured ? 'Unlock Your Diary' : 'Protect Your Diary'}
+        </h1>
+        <p class="mt-1 text-xs" style="color: var(--text-muted)">
+          {isConfigured
+            ? 'Your diary is encrypted at rest. Enter your master password to continue.'
+            : 'Set a master password to encrypt your entries, memories, and AI analysis with AES-256.'}
+        </p>
+      </div>
+
+      {migratingLegacy && (
+        <div class="mb-5 rounded-lg border p-3 text-xs" style="background: var(--accent-soft); border-color: var(--accent); color: var(--text)">
+          <div class="flex items-start gap-2">
+            <Icon name="sparkles" size={15} class="shrink-0 mt-0.5" />
+            <span>
+              <strong>Existing diary detected.</strong> Your master password will securely wrap and encrypt your database key without losing any data.
+            </span>
+          </div>
+        </div>
+      )}
+
+      <!-- Error Alert -->
+      <div id="error-alert" class="mb-4 hidden rounded-lg border p-3 text-xs" style="background: var(--danger-soft); border-color: var(--danger); color: var(--danger)">
+        <div class="flex items-center gap-2">
+          <Icon name="x" size={14} class="shrink-0" />
+          <span id="error-message"></span>
+        </div>
+      </div>
+
+      <!-- Forms -->
+      {isConfigured ? (
+        <form id="unlock-form" class="space-y-4">
+          <div>
+            <label for="password" class="block text-xs font-medium uppercase tracking-wider mb-1.5" style="color: var(--text-muted)">
+              Master Password
+            </label>
+            <div class="relative">
+              <input
+                type="password"
+                id="password"
+                name="password"
+                required
+                autofocus
+                placeholder="Enter your master password"
+                class="input w-full pr-10"
+                autocomplete="current-password"
+              />
+              <button
+                type="button"
+                id="toggle-password"
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 opacity-60 hover:opacity-100 transition-opacity"
+                aria-label="Toggle password visibility"
+              >
+                <Icon name="eye" size={16} class="eye-open" />
+                <Icon name="eyeOff" size={16} class="eye-closed hidden" />
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            id="submit-btn"
+            class="btn btn-primary w-full justify-center py-2.5 font-medium"
+          >
+            <Icon name="lock" size={16} />
+            <span id="btn-text">Unlock Diary</span>
+          </button>
+        </form>
+      ) : (
+        <form id="setup-form" class="space-y-4">
+          <div>
+            <label for="new-password" class="block text-xs font-medium uppercase tracking-wider mb-1.5" style="color: var(--text-muted)">
+              Create Master Password
+            </label>
+            <input
+              type="password"
+              id="new-password"
+              name="password"
+              required
+              minlength="6"
+              autofocus
+              placeholder="At least 6 characters"
+              class="input w-full"
+              autocomplete="new-password"
+            />
+          </div>
+
+          <div>
+            <label for="confirm-password" class="block text-xs font-medium uppercase tracking-wider mb-1.5" style="color: var(--text-muted)">
+              Confirm Password
+            </label>
+            <input
+              type="password"
+              id="confirm-password"
+              name="confirmPassword"
+              required
+              minlength="6"
+              placeholder="Re-enter your master password"
+              class="input w-full"
+              autocomplete="new-password"
+            />
+          </div>
+
+          <div class="rounded-lg border p-3 text-[11px]" style="background: var(--surface-2); border-color: var(--border); color: var(--text-faint)">
+            <p class="font-medium" style="color: var(--text)">Important Notice</p>
+            <p class="mt-0.5">
+              There is no password reset or cloud recovery. If you forget your master password, your encrypted diary cannot be recovered.
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            id="submit-btn"
+            class="btn btn-primary w-full justify-center py-2.5 font-medium"
+          >
+            <Icon name="lock" size={16} />
+            <span id="btn-text">Encrypt & Unlock</span>
+          </button>
+        </form>
+      )}
+    </div>
+
+    <!-- Script -->
+    <script is:inline define:vars={{ isConfigured, returnTo }}>
+      // Theme toggle support
+      const themeToggle = document.getElementById('theme-toggle');
+      if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+          const current = document.documentElement.getAttribute('data-theme');
+          const next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          localStorage.setItem('diary-theme', next);
+        });
+      }
+
+      // Password visibility toggle
+      const toggleBtn = document.getElementById('toggle-password');
+      const passwordInput = document.getElementById('password');
+      if (toggleBtn && passwordInput) {
+        toggleBtn.addEventListener('click', () => {
+          const isPassword = passwordInput.type === 'password';
+          passwordInput.type = isPassword ? 'text' : 'password';
+          const eyeOpen = toggleBtn.querySelector('.eye-open');
+          const eyeClosed = toggleBtn.querySelector('.eye-closed');
+          if (eyeOpen && eyeClosed) {
+            eyeOpen.classList.toggle('hidden', isPassword);
+            eyeClosed.classList.toggle('hidden', !isPassword);
+          }
+        });
+      }
+
+      const errorAlert = document.getElementById('error-alert');
+      const errorMessage = document.getElementById('error-message');
+      const submitBtn = document.getElementById('submit-btn');
+      const btnText = document.getElementById('btn-text');
+
+      function showError(msg) {
+        if (errorMessage && errorAlert) {
+          errorMessage.textContent = msg;
+          errorAlert.classList.remove('hidden');
+        }
+        if (submitBtn) submitBtn.disabled = false;
+        if (btnText) btnText.textContent = isConfigured ? 'Unlock Diary' : 'Encrypt & Unlock';
+      }
+
+      function setLoading(loading) {
+        if (submitBtn) submitBtn.disabled = loading;
+        if (btnText) btnText.textContent = loading ? 'Decrypting...' : (isConfigured ? 'Unlock Diary' : 'Encrypt & Unlock');
+        if (errorAlert) errorAlert.classList.add('hidden');
+      }
+
+      if (isConfigured) {
+        const unlockForm = document.getElementById('unlock-form');
+        unlockForm?.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const password = passwordInput?.value ?? '';
+          if (!password) return;
+
+          setLoading(true);
+          try {
+            const res = await fetch('/api/auth/unlock', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ password }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+              showError(data.error || 'Incorrect password.');
+              return;
+            }
+
+            // Redirect on success
+            window.location.href = returnTo || '/';
+          } catch (err) {
+            showError('Network error. Please try again.');
+          }
+        });
+      } else {
+        const setupForm = document.getElementById('setup-form');
+        setupForm?.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const newPass = document.getElementById('new-password')?.value ?? '';
+          const confirmPass = document.getElementById('confirm-password')?.value ?? '';
+
+          if (newPass.length < 6) {
+            showError('Password must be at least 6 characters.');
+            return;
+          }
+
+          if (newPass !== confirmPass) {
+            showError('Passwords do not match.');
+            return;
+          }
+
+          setLoading(true);
+          try {
+            const res = await fetch('/api/auth/setup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ password: newPass }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+              showError(data.error || 'Could not setup master password.');
+              return;
+            }
+
+            window.location.href = returnTo || '/';
+          } catch (err) {
+            showError('Network error. Please try again.');
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

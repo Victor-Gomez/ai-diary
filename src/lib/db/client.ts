@@ -39,3 +39,17 @@ export function getDb(): Database {
   db = conn;
   return db;
 }
+
+export function closeDb(): void {
+  if (db) {
+    try {
+      db.pragma('wal_checkpoint(TRUNCATE)');
+      db.close();
+    } catch {
+      /* ignore */
+    } finally {
+      db = null;
+    }
+  }
+}
+

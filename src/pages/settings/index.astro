@@ -4,9 +4,11 @@ import Icon from '../../components/ui/Icon.astro';
 import { getSettings } from '../../lib/settings/settings';
 import { createProvider } from '../../lib/ai';
 import { listMemories } from '../../lib/memory/memories';
+import { isVaultSetup } from '../../lib/auth/vault';
 
 export const prerender = false;
 
+const vaultSetup = isVaultSetup();
 const settings = getSettings();
 const status = await Promise.race([
   createProvider(settings).status(),
@@ -95,16 +97,57 @@ const providers = [
       </div>
     </section>
 
+    <!-- Vault & Security -->
+    <section class="mt-6">
+      <h2 class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide" style="color: var(--text-faint)">
+        <Icon name="lock" size={14} /> Vault & Security
+      </h2>
+      <div class="card space-y-4 p-5">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div class="text-sm font-medium">Vault Protection</div>
+            <div class="text-xs" style="color: var(--text-muted)">
+              {vaultSetup ? 'Locked behind Master Password (PBKDF2 + AES-256-GCM + SQLCipher)' : 'Using unencrypted local key file'}
+            </div>
+          </div>
+          <button id="lock-now-btn" type="button" class="btn shrink-0"><Icon name="lock" size={15} /> Lock vault now</button>
+        </div>
+
+        {vaultSetup && (
+          <div class="border-t pt-4" style="border-color: var(--border)">
+            <button id="toggle-change-pass" type="button" class="btn btn-ghost text-xs">
+              <Icon name="key" size={14} /> Change Master Password
+            </button>
+            <form id="change-pass-form" class="mt-3 hidden space-y-3">
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label class="text-xs">
+                  <span class="font-medium">Current Password</span>
+                  <input id="curr-password" type="password" required class="input mt-1 w-full" />
+                </label>
+                <label class="text-xs">
+                  <span class="font-medium">New Password (min 6 chars)</span>
+                  <input id="new-password" type="password" required minlength="6" class="input mt-1 w-full" />
+                </label>
+              </div>
+              <button type="submit" id="save-new-pass" class="btn btn-primary text-xs">
+                Update Master Password
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
+    </section>
+
     <!-- Privacy -->
     <section class="mt-6">
       <h2 class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide" style="color: var(--text-faint)">
-        <Icon name="lock" size={14} /> Privacy
+        <Icon name="lock" size={14} /> Privacy & Data
       </h2>
       <div class="card space-y-2.5 p-5 text-sm" style="color: var(--text-muted)">
         <p class="flex items-start gap-2"><Icon name="check" size={16} class="mt-0.5 shrink-0 text-[color:var(--accent)]" /> Your diary is stored locally, in an <strong class="font-semibold" style="color: var(--text)">encrypted SQLite database</strong> (SQLCipher / AES-256).</p>
         <p class="flex items-start gap-2"><Icon name="check" size={16} class="mt-0.5 shrink-0 text-[color:var(--accent)]" /> AI processing can be performed <strong class="font-semibold" style="color: var(--text)">entirely on-device</strong> with the built-in provider or a local model.</p>
         <p class="flex items-start gap-2"><Icon name="check" size={16} class="mt-0.5 shrink-0 text-[color:var(--accent)]" /> <strong class="font-semibold" style="color: var(--text)">No diary data is uploaded</strong> unless you explicitly configure a remote AI endpoint.</p>
-        <p class="mt-1 text-xs" style="color: var(--text-faint)">Encryption key: stored locally in <code>data/diary.key</code> (or the <code>DIARY_DB_KEY</code> environment variable). Keep a copy — backups can’t be opened without it.</p>
+        <p class="mt-1 text-xs" style="color: var(--text-faint)">Encryption key: sealed inside <code>data/vault.json</code> with your master password. Backups require your master password to decrypt.</p>
       </div>
     </section>
 
@@ -262,6 +305,45 @@ const providers = [
       setTimeout(() => (window.location.href = '/'), 700);
     } catch (e) {
       showToast((e as Error).message, 'error');
+    }
+  });
+
+  // Lock vault now
+  $('lock-now-btn')?.addEventListener('click', async () => {
+    try {
+      await fetch('/api/auth/lock', { method: 'POST' });
+    } catch {
+      /* ignore */
+    }
+    window.location.href = '/unlock';
+  });
+
+  // Toggle change password form
+  $('toggle-change-pass')?.addEventListener('click', () => {
+    $('change-pass-form')?.classList.toggle('hidden');
+  });
+
+  // Submit change password
+  $('change-pass-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const currentPassword = ($('curr-password') as HTMLInputElement).value;
+    const newPassword = ($('new-password') as HTMLInputElement).value;
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        showToast(data.error || 'Failed to update password', 'error');
+        return;
+      }
+      showToast('Master password updated successfully', 'success');
+      ($('change-pass-form') as HTMLFormElement).reset();
+      $('change-pass-form')?.classList.add('hidden');
+    } catch (err) {
+      showToast((err as Error).message, 'error');
     }
   });
 </script>

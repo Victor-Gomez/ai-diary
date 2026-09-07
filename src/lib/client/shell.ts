@@ -6,6 +6,19 @@ export function initShell(): void {
   initTheme();
   initPalette();
   initGlobalShortcuts();
+  initLock();
+}
+
+function initLock(): void {
+  const lockBtn = document.getElementById('lock-vault-btn');
+  lockBtn?.addEventListener('click', async () => {
+    try {
+      await fetch('/api/auth/lock', { method: 'POST' });
+    } catch {
+      /* ignore */
+    }
+    window.location.href = '/unlock';
+  });
 }
 
 // --- Theme -----------------------------------------------------------------
