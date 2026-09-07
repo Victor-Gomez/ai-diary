@@ -42,8 +42,16 @@ export const POST: APIRoute = async ({ request }) => {
     }
     if (!text) return badRequest('Could not produce an entry from this conversation.');
 
-    const updating = Boolean(body.entryId && getEntry(body.entryId));
-    const entry = updating ? updateEntry(body.entryId!, text) : createEntry(text);
+    let targetEntryId = body.entryId;
+    if (!targetEntryId) {
+      const prior = getMessages(conversationId);
+      const firstCitation = prior.flatMap((m) => m.citations || [])[0];
+      if (firstCitation?.entryId && getEntry(firstCitation.entryId)) {
+        targetEntryId = firstCitation.entryId;
+      }
+    }
+    const updating = Boolean(targetEntryId && getEntry(targetEntryId));
+    const entry = updating ? updateEntry(targetEntryId!, text) : createEntry(text);
     if (!entry) return notFound('Entry not found');
 
     const analysis = await analyzeEntry(entry.id).catch(() => null);

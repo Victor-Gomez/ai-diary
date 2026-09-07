@@ -98,8 +98,8 @@ export class OpenAICompatibleProvider implements AIProvider {
     return parseAnalysis(raw);
   }
 
-  async summarizeConversation(messages: ProviderChatMessage[]): Promise<string> {
-    return this.chat(buildSummaryMessages(messages));
+  async summarizeConversation(messages: ProviderChatMessage[], baseDraft?: string): Promise<string> {
+    return this.chat(buildSummaryMessages(messages, baseDraft));
   }
 
   async embed(text: string): Promise<number[]> {

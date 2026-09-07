@@ -15,11 +15,12 @@ export const POST: APIRoute = async ({ request }) => {
   const conversationId = body.conversationId;
   const content = body.content?.trim();
   if (!conversationId || !content) return badRequest('conversationId and content are required');
-  if (!getConversation(conversationId)) return badRequest('Unknown conversation');
+  const conv = getConversation(conversationId);
+  if (!conv) return badRequest('Unknown conversation');
 
   const prior = getMessages(conversationId);
   addMessage(conversationId, 'user', content);
-  if (prior.filter((m) => m.role === 'user').length === 0) {
+  if (conv.title === 'New conversation' && prior.filter((m) => m.role === 'user').length === 0) {
     renameConversation(conversationId, content.slice(0, 60));
   }
 

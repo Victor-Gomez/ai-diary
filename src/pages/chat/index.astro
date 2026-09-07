@@ -2,6 +2,7 @@
 import AppLayout from '../../layouts/AppLayout.astro';
 import Icon from '../../components/ui/Icon.astro';
 import { listConversations, getConversation, getMessages } from '../../lib/chat/conversations';
+import { getEntry } from '../../lib/diary/entries';
 import { renderMarkdown } from '../../lib/utils/markdown';
 import { formatLongDate } from '../../lib/utils/date';
 import { getSettings } from '../../lib/settings/settings';
@@ -15,6 +16,21 @@ const activeId = forceNew ? null : (Astro.url.searchParams.get('c') ?? conversat
 const active = activeId ? getConversation(activeId) : null;
 const messages = active ? getMessages(active.id) : [];
 const today = formatLongDate(new Date().toISOString());
+
+// Find if an entry is linked via citation in any message (e.g. from "Chat about this")
+let initialEntry: ReturnType<typeof getEntry> | null = null;
+if (messages.length > 0) {
+  for (const m of messages) {
+    if (m.citations && m.citations.length > 0) {
+      const citedId = m.citations[0]?.entryId;
+      if (citedId) {
+        initialEntry = getEntry(citedId);
+        if (initialEntry) break;
+      }
+    }
+  }
+}
+const initialEntryDate = initialEntry ? formatLongDate(initialEntry.createdAt) : null;
 
 const suggestions = [
   'Today was a good day…',
@@ -75,15 +91,20 @@ const suggestions = [
               <div class={`chat-msg ${m.role}`} data-role={m.role}>
                 {m.role === 'assistant' ? (
                   <div class="assistant-bubble">
-                    <div class="prose-diary text-sm" set:html={renderMarkdown(m.content)} />
-                    {m.citations.length > 0 && (
-                      <div class="mt-3 flex flex-wrap gap-1.5 border-t pt-2.5" style="border-color: var(--border)">
-                        <span class="text-[11px] font-medium" style="color: var(--text-faint)">Saved:</span>
-                        {m.citations.map((c) => (
-                          <a href={`/diary/${c.entryId}`} class="chip chip-accent text-[11px]" title={c.excerpt}><Icon name="book" size={11} /> {c.date}</a>
-                        ))}
-                      </div>
-                    )}
+                    <div class="prose-diary text-sm" data-raw={m.content} set:html={renderMarkdown(m.content)} />
+                    <div class="bubble-actions mt-2.5 flex flex-wrap items-center gap-2 border-t pt-2" style="border-color: var(--border)">
+                      {m.citations.length > 0 && (
+                        <div class="flex flex-wrap items-center gap-1.5">
+                          <span class="text-[11px] font-medium" style="color: var(--text-faint)">Sources:</span>
+                          {m.citations.map((c) => (
+                            <a href={`/diary/${c.entryId}`} class="chip chip-accent text-[11px]" title={c.excerpt}><Icon name="book" size={11} /> {c.date}</a>
+                          ))}
+                        </div>
+                      )}
+                      <button type="button" class="btn btn-ghost ml-auto px-2 py-0.5 text-[11px] apply-to-draft" title="Use this response as the current draft">
+                        <Icon name="edit" size={12} /> Apply to draft
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div class="user-bubble">{m.content}</div>
@@ -115,6 +136,11 @@ const suggestions = [
       class="relative hidden shrink-0 flex-col border-l lg:flex"
       style="width: var(--chat-draft-width, 380px); background: var(--surface-2); border-color: var(--border)"
     >
+      <script is:inline type="application/json" id="initial-entry-data" set:html={JSON.stringify({
+        entryId: initialEntry?.id ?? null,
+        date: initialEntryDate ?? null,
+        content: initialEntry?.content ?? null,
+      })} />
       <div
         id="draft-resizer"
         class="absolute -left-1 top-0 bottom-0 z-30 w-2 cursor-col-resize hover:bg-[var(--accent)] active:bg-[var(--accent)] transition-colors opacity-0 hover:opacity-100 active:opacity-100"
@@ -124,29 +150,29 @@ const suggestions = [
         <Icon name="edit" size={16} />
         <div class="min-w-0">
           <div class="text-sm font-semibold">Draft entry</div>
-          <div class="text-[11px]" style="color: var(--text-faint)">{today}</div>
+          <div id="draft-date" class="text-[11px]" style="color: var(--text-faint)">{initialEntryDate || today}</div>
         </div>
         <button type="button" id="draft-close" class="btn btn-ghost ml-auto px-1.5 py-1 lg:hidden" aria-label="Close draft">
           <Icon name="x" size={16} />
         </button>
-        <button type="button" id="save-draft" class="btn btn-primary ml-auto px-3 py-1.5 text-xs lg:ml-auto" disabled>
-          <Icon name="check" size={15} /> <span id="save-label">Save</span>
+        <button type="button" id="save-draft" class="btn btn-primary ml-auto px-3 py-1.5 text-xs lg:ml-auto" disabled={!initialEntry}>
+          <Icon name="check" size={15} /> <span id="save-label">{initialEntry ? 'Update' : 'Save'}</span>
         </button>
       </header>
 
       <div class="flex-1 overflow-y-auto px-5 py-5">
-        <div id="draft-empty" class="flex h-full flex-col items-center justify-center text-center">
+        <div id="draft-empty" class={`flex h-full flex-col items-center justify-center text-center ${initialEntry ? 'hidden' : ''}`}>
           <div class="mb-3 rounded-full p-3" style="background: var(--accent-soft)">
             <Icon name="edit" size={22} class="text-[color:var(--accent-hover)]" />
           </div>
           <p class="text-sm" style="color: var(--text-muted)">Your entry will appear here<br />as you talk.</p>
         </div>
-        <article id="draft-body" class="prose-diary hidden text-[0.98rem]"></article>
+        <article id="draft-body" class={`prose-diary text-[0.98rem] ${initialEntry ? '' : 'hidden'}`} set:html={initialEntry ? renderMarkdown(initialEntry.content) : ''}></article>
       </div>
 
       <footer class="flex items-center gap-2 border-t px-4 py-2 text-[11px]" style="border-color: var(--border); color: var(--text-faint)">
         <span id="draft-status" class="flex items-center gap-1.5"><Icon name="sparkles" size={12} /> Updates as you chat</span>
-        <a id="open-entry" href="#" class="ml-auto hidden items-center gap-1 hover:underline" style="color: var(--text-muted)">
+        <a id="open-entry" href={initialEntry ? `/diary/${initialEntry.id}` : '#'} class={`ml-auto ${initialEntry ? 'flex' : 'hidden'} items-center gap-1 hover:underline`} style="color: var(--text-muted)">
           Open in editor <Icon name="chevronRight" size={12} />
         </a>
       </footer>
@@ -219,8 +245,20 @@ const suggestions = [
   const backdrop = document.getElementById('draft-backdrop') as HTMLElement;
 
   let conversationId = messagesEl.dataset.conversationId || null;
-  let currentDraft = '';
-  let savedEntryId: string | null = null;
+  const initEl = document.getElementById('initial-entry-data');
+  let initialEntryData: { entryId: string | null; date: string | null; content: string | null } = {
+    entryId: null,
+    date: null,
+    content: null,
+  };
+  if (initEl?.textContent) {
+    try {
+      initialEntryData = JSON.parse(initEl.textContent);
+    } catch {}
+  }
+
+  let currentDraft = initialEntryData.content || '';
+  let savedEntryId: string | null = initialEntryData.entryId || null;
   let busy = false;
 
   // In-browser (Gemini Nano) inference path.
@@ -267,25 +305,78 @@ const suggestions = [
     }
   }
 
+  function renderApplyButton(bubble: HTMLElement) {
+    if (bubble.querySelector('.apply-to-draft')) return;
+    let bar = bubble.querySelector('.bubble-actions') as HTMLElement | null;
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.className = 'bubble-actions mt-2.5 flex flex-wrap items-center gap-2 border-t pt-2';
+      bar.style.borderColor = 'var(--border)';
+      bubble.appendChild(bar);
+    }
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-ghost ml-auto px-2 py-0.5 text-[11px] apply-to-draft';
+    btn.title = 'Use this response as the current draft';
+    btn.innerHTML = '<span class="icon inline-block" style="width:12px;height:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span> Apply to draft';
+    bar.appendChild(btn);
+  }
+
   function renderCitations(bubble: HTMLElement, citations: Citation[]) {
     if (!citations.length) return;
+    let bar = bubble.querySelector('.bubble-actions') as HTMLElement | null;
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.className = 'bubble-actions mt-2.5 flex flex-wrap items-center gap-2 border-t pt-2';
+      bar.style.borderColor = 'var(--border)';
+      bubble.appendChild(bar);
+    }
     const box = document.createElement('div');
-    box.className = 'mt-3 flex flex-wrap gap-1.5 border-t pt-2.5';
-    box.style.borderColor = 'var(--border)';
+    box.className = 'flex flex-wrap items-center gap-1.5';
     box.innerHTML =
       '<span class="text-[11px] font-medium" style="color: var(--text-faint)">Sources:</span>' +
       citations
         .map((c) => `<a href="/diary/${c.entryId}" class="chip chip-accent text-[11px]" title="${escapeAttr(c.excerpt)}">${escapeAttr(c.date)}</a>`)
         .join('');
-    bubble.appendChild(box);
+    bar.prepend(box);
   }
 
-  // Recover a previously-saved entry id for this conversation (survives reload).
+  // If the model wrapped the WHOLE entry in one code fence, unwrap it. Only when
+  // the entire text is a single fenced block — otherwise a legitimate inner code
+  // block would be destroyed.
+  function unwrapFence(text: string): string {
+    const t = text.trim();
+    const m = t.match(/^```[^\n]*\n([\s\S]*?)\n?```$/);
+    return m && m[1] !== undefined ? m[1].trim() : t;
+  }
+
+  function extractDraftFromText(text: string): string {
+    let trimmed = text.trim();
+    // Models often isolate the entry inside a fenced code block — take its
+    // contents (this also drops any preamble/question around the fence).
+    const fence = trimmed.match(/```[^\n]*\n([\s\S]*?)```/);
+    if (fence && fence[1]?.trim()) trimmed = fence[1].trim();
+    const m = trimmed.match(/(?:here is (?:the )?(?:translation|revised|updated)[^:\n]*:\s*\n+)([\s\S]*?)(?:\n\nI've (?:also )?updated|\n\nThis reflects|\n\nWhat would you like|$)/i);
+    if (m && m[1]?.trim()) {
+      return m[1].trim();
+    }
+    const bq = trimmed.match(/(?:^|\n)> ([^\n]+(?:\n>[^\n]+)*)/);
+    if (bq && bq[1]) {
+      return bq[1].replace(/^>\s*/gm, '').trim();
+    }
+    return trimmed;
+  }
+
+  // Recover or persist savedEntryId for this conversation
   if (conversationId) {
-    try {
-      savedEntryId = sessionStorage.getItem(`diary-saved-${conversationId}`);
-    } catch {
-      /* ignore */
+    if (savedEntryId) {
+      try {
+        sessionStorage.setItem(`diary-saved-${conversationId}`, savedEntryId);
+      } catch {}
+    } else {
+      try {
+        savedEntryId = sessionStorage.getItem(`diary-saved-${conversationId}`);
+      } catch {}
     }
   }
 
@@ -347,15 +438,32 @@ const suggestions = [
     draftStatus.textContent = 'Updating draft…';
     try {
       if (browserMode) {
-        const { messages } = await apiSend<{ messages: ProviderChatMessage[] }>(
+        const { messages, baseDraft } = await apiSend<{ messages: ProviderChatMessage[]; baseDraft?: string }>(
           '/api/chat/draft-messages',
           'POST',
           { conversationId },
         );
-        renderDraft(messages.length ? (await browserComplete(messages)).trim() : '');
+        if (messages.length) {
+          const res = unwrapFence((await browserComplete(messages)).trim());
+          if (res) renderDraft(res);
+        } else if (baseDraft && !currentDraft) {
+          renderDraft(baseDraft);
+        }
       } else {
-        const res = await apiSend<{ draft: string }>('/api/chat/draft', 'POST', { conversationId });
-        renderDraft(res.draft);
+        const res = await apiSend<{ draft: string; entryId?: string }>('/api/chat/draft', 'POST', { conversationId });
+        if (res.draft) {
+          renderDraft(unwrapFence(res.draft));
+        }
+        if (res.entryId && !savedEntryId) {
+          savedEntryId = res.entryId;
+          openEntry.href = `/diary/${savedEntryId}`;
+          openEntry.classList.remove('hidden');
+          openEntry.classList.add('flex');
+          saveLabel.textContent = 'Update';
+          try {
+            sessionStorage.setItem(`diary-saved-${conversationId}`, savedEntryId);
+          } catch {}
+        }
       }
       draftStatus.textContent = 'Draft updated';
     } catch {
@@ -384,7 +492,7 @@ const suggestions = [
     addUserBubble(text);
     input.value = '';
     autoGrow();
-    const { body } = addAssistantShell();
+    const { body, bubble } = addAssistantShell();
 
     try {
       // Warm the on-device model FIRST so any download stays in the user-gesture
@@ -408,9 +516,9 @@ const suggestions = [
           scrollToBottom();
         });
         if (!answer.trim()) { body.textContent = '(no response)'; }
-        else { body.innerHTML = renderMarkdown(answer); }
-        const bubbleEl = body.closest('.assistant-bubble') as HTMLElement | null;
-        if (bubbleEl) renderCitations(bubbleEl, prep.citations);
+        else { body.innerHTML = renderMarkdown(answer); body.dataset.raw = answer; }
+        renderCitations(bubble, prep.citations);
+        renderApplyButton(bubble);
         await apiSend('/api/chat/save-assistant', 'POST', {
           conversationId: convId,
           content: answer,
@@ -452,6 +560,7 @@ const suggestions = [
           }
         }
         if (!started) body.textContent = answer || '(no response)';
+        if (answer) { body.dataset.raw = answer; renderApplyButton(bubble); }
       }
       await refreshDraft(); // rebuild the entry from the updated conversation
     } catch (e) {
@@ -485,16 +594,9 @@ const suggestions = [
       // Show the confirmation in the conversation.
       const { bubble, body } = addAssistantShell();
       body.innerHTML = renderMarkdown(res.assistantMessage.content);
+      body.dataset.raw = res.assistantMessage.content;
       if (res.assistantMessage.citations.length) {
-        const box = document.createElement('div');
-        box.className = 'mt-3 flex flex-wrap gap-1.5 border-t pt-2.5';
-        box.style.borderColor = 'var(--border)';
-        box.innerHTML =
-          '<span class="text-[11px] font-medium" style="color: var(--text-faint)">Saved:</span>' +
-          res.assistantMessage.citations
-            .map((c) => `<a href="/diary/${c.entryId}" class="chip chip-accent text-[11px]" title="${escapeAttr(c.excerpt)}">${escapeAttr(c.date)}</a>`)
-            .join('');
-        bubble.appendChild(box);
+        renderCitations(bubble, res.assistantMessage.citations);
       }
       openEntry.href = `/diary/${savedEntryId}`;
       openEntry.classList.remove('hidden');
@@ -521,6 +623,25 @@ const suggestions = [
   });
   sendBtn?.addEventListener('click', () => void send(input.value));
   saveBtn?.addEventListener('click', () => void saveDraft());
+
+  messagesEl.addEventListener('click', (e) => {
+    const target = (e.target as HTMLElement).closest('.apply-to-draft');
+    if (!target) return;
+    const bubble = target.closest('.assistant-bubble');
+    if (!bubble) return;
+    const prose = bubble.querySelector('.prose-diary') as HTMLElement | null;
+    if (!prose) return;
+    // Use the RAW markdown source (data-raw) so formatting survives; fall back to
+    // the rendered text only if the raw source isn't available.
+    const raw = prose.dataset.raw ?? prose.innerText ?? prose.textContent ?? '';
+    const text = extractDraftFromText(raw);
+    if (text) {
+      renderDraft(text);
+      draftStatus.textContent = 'Applied to draft';
+      showToast('Applied to draft panel — click Update to save', 'success');
+      if (window.innerWidth < 1024) openDrawer();
+    }
+  });
 
   document.querySelectorAll<HTMLButtonElement>('.suggestion').forEach((btn) =>
     btn.addEventListener('click', () => void send(btn.dataset.q ?? '')),
@@ -556,7 +677,9 @@ const suggestions = [
     openEntry.classList.add('flex');
     saveLabel.textContent = 'Update';
   }
-  if (conversationId && listWrap.querySelector('.chat-msg')) void refreshDraft();
+  if (conversationId && listWrap.querySelector('.chat-msg') && !initialEntryData.content) {
+    void refreshDraft();
+  }
   input?.focus();
   scrollToBottom();
 </script>

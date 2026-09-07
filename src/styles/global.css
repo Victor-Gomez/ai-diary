@@ -227,6 +227,17 @@ body {
     outline: none;
     box-shadow: 0 0 0 2px var(--ring);
   }
+  .search-bar-surface input,
+  .search-bar-surface input:focus,
+  .search-bar-surface input:focus-visible,
+  #palette input,
+  #palette input:focus,
+  #palette input:focus-visible {
+    border: none !important;
+    background: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
 
   .chip {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;

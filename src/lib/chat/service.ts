@@ -3,6 +3,7 @@ import { getRelevantMemories } from '../memory/memories';
 import { getMessages } from './conversations';
 import { getSettings } from '../settings/settings';
 import { formatLongDate } from '../utils/date';
+import { getEntry } from '../diary/entries';
 import type { Citation, ProviderChatMessage } from '@/types';
 
 const SYSTEM_PROMPT = `You are a thoughtful journaling assistant with access to the user's private diary.
@@ -34,10 +35,38 @@ export async function prepareChat(
   const retrieved = await retriever.search(question, { limit: settings.chatContextEntries });
   const memories = getRelevantMemories(question, 4);
 
+  // If this conversation originated from an entry or has prior citations, make sure they are included
+  const priorMessages = getMessages(conversationId);
+  const existingEntryIds = new Set(retrieved.map((r) => r.entry.id));
+  let focusedEntry: ReturnType<typeof getEntry> | null = null;
+
+  for (const m of priorMessages) {
+    for (const c of m.citations) {
+      const actualEntry = getEntry(c.entryId);
+      if (actualEntry && !focusedEntry) {
+        focusedEntry = actualEntry;
+      }
+      if (!existingEntryIds.has(c.entryId)) {
+        existingEntryIds.add(c.entryId);
+        if (actualEntry) {
+          retrieved.unshift({
+            entry: actualEntry,
+            excerpt: actualEntry.content,
+            score: 1.0,
+          });
+        }
+      }
+    }
+  }
+
+  const focusedBlock = focusedEntry
+    ? `\n\nCURRENT FOCUSED ENTRY (The entry currently being discussed / translated / edited, dated ${formatLongDate(focusedEntry.createdAt)}):\n"""\n${focusedEntry.content}\n"""`
+    : '';
+
   const contextLines = retrieved.length
     ? retrieved
-        .map((r) => `- [${formatLongDate(r.entry.createdAt)}] ${r.excerpt}`)
-        .join('\n')
+        .map((r) => `--- Entry from ${formatLongDate(r.entry.createdAt)} ---\n${r.entry.content}`)
+        .join('\n\n')
     : '(no relevant entries found)';
 
   const memoryBlock = memories.length
@@ -48,7 +77,7 @@ export async function prepareChat(
 
   const contextMessage: ProviderChatMessage = {
     role: 'system',
-    content: `DIARY CONTEXT (most relevant entries for this question):\n${contextLines}${memoryBlock}`,
+    content: `DIARY CONTEXT (relevant entries for this question):${focusedBlock}\n\n${contextLines}${memoryBlock}`,
   };
 
   // Recent conversation history (exclude the just-saved question if present).
@@ -70,7 +99,7 @@ export async function prepareChat(
   const citations: Citation[] = retrieved.map((r) => ({
     entryId: r.entry.id,
     date: formatLongDate(r.entry.createdAt),
-    excerpt: r.excerpt,
+    excerpt: r.entry.content.length > 200 ? `${r.entry.content.slice(0, 200)}…` : r.entry.content,
   }));
 
   return { providerMessages, citations, retrieved };

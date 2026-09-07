@@ -24,9 +24,11 @@ export interface AIProvider {
 
   /**
    * Distill a conversation into a first-person diary entry the user can save.
+   * If baseDraft is provided (e.g. from an existing entry being discussed or edited),
+   * the summarizer updates, translates, or refines it accordingly.
    * Must only reflect what the user actually said — no invented events.
    */
-  summarizeConversation(messages: ProviderChatMessage[]): Promise<string>;
+  summarizeConversation(messages: ProviderChatMessage[], baseDraft?: string): Promise<string>;
 
   /** Produce an embedding vector for semantic search (Phase 4). */
   embed(text: string): Promise<number[]>;

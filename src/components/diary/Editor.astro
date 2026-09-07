@@ -1,6 +1,7 @@
 ---
 import Icon from '../ui/Icon.astro';
 import { formatLongDate, formatTime } from '../../lib/utils/date';
+import { renderMarkdown } from '../../lib/utils/markdown';
 
 interface Props {
   id: string | null;
@@ -8,15 +9,16 @@ interface Props {
   createdAt: string | null;
 }
 const { id, content, createdAt } = Astro.props;
+const initialHtml = renderMarkdown(content);
 ---
-<div class="mx-auto flex h-full max-w-3xl flex-col px-6 md:px-10">
+<div class="mx-auto flex h-full max-w-4xl flex-col px-6 md:px-10">
   <!-- Toolbar -->
   <header class="flex items-center gap-3 pt-6 pb-3">
-    <a href="/diary" class="btn btn-ghost px-2" aria-label="Back to diary" title="Back">
+    <a href="/diary" class="btn btn-ghost shrink-0 px-2" aria-label="Back to diary" title="Back">
       <Icon name="arrowLeft" size={18} />
     </a>
-    <div>
-      <div class="text-sm font-semibold tracking-tight">
+    <div class="min-w-0">
+      <div class="truncate text-sm font-semibold tracking-tight">
         {createdAt ? formatLongDate(createdAt) : 'New entry'}
       </div>
       <div class="text-[11px]" style="color: var(--text-faint)">
@@ -24,10 +26,10 @@ const { id, content, createdAt } = Astro.props;
       </div>
     </div>
 
-    <div class="ml-auto flex items-center gap-2">
+    <div class="ml-auto flex shrink-0 items-center gap-2">
       <span
         id="save-status"
-        class="flex items-center gap-1.5 text-xs transition-opacity"
+        class="flex items-center gap-1.5 text-xs transition-opacity whitespace-nowrap"
         style="color: var(--text-faint)"
         aria-live="polite"
       >
@@ -35,33 +37,44 @@ const { id, content, createdAt } = Astro.props;
         <span id="save-text">Ready</span>
       </span>
 
-      <!-- Segmented View Code / Preview switch -->
-      <div class="flex items-center rounded-lg p-0.5 border" style="background: var(--surface-2); border-color: var(--border)">
+      <!-- Segmented View Code / Preview switch (defaults to Preview) -->
+      <div class="flex items-center rounded-lg p-0.5 border shrink-0" style="background: var(--surface-2); border-color: var(--border)">
+        <button
+          type="button"
+          id="preview-btn"
+          class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all whitespace-nowrap"
+          style="background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.08);"
+          title="Preview and edit formatted text"
+        >
+          <Icon name="book" size={13} />
+          <span>Preview</span>
+        </button>
         <button
           type="button"
           id="view-code-btn"
-          class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
-          style="background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.08);"
+          class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all whitespace-nowrap"
+          style="background: transparent; color: var(--text-muted);"
           title="Edit markdown plain text"
         >
           <Icon name="code" size={13} />
           <span>View Code</span>
         </button>
-        <button
-          type="button"
-          id="preview-btn"
-          class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
-          style="background: transparent; color: var(--text-muted);"
-          title="Preview formatted markdown"
-        >
-          <Icon name="book" size={13} />
-          <span>Preview</span>
-        </button>
       </div>
+
+      <button
+        type="button"
+        id="chat-about-btn"
+        class={`btn btn-ghost border px-2.5 py-1.5 text-xs gap-1.5 shrink-0 whitespace-nowrap ${id ? '' : 'hidden'}`}
+        style="border-color: var(--border)"
+        title="Open a chat focused on this entry"
+      >
+        <Icon name="chat" size={14} />
+        <span>Chat about this</span>
+      </button>
 
       {
         id && (
-          <button type="button" id="delete-btn" class="btn btn-danger px-2.5 py-1.5 text-xs" title="Delete entry">
+          <button type="button" id="delete-btn" class="btn btn-danger shrink-0 px-2.5 py-1.5 text-xs" title="Delete entry">
             <Icon name="trash" size={15} />
           </button>
         )
@@ -178,18 +191,26 @@ const { id, content, createdAt } = Astro.props;
       </button>
     </div>
 
+    <!-- Raw Plain Text Markdown Editor (View Code) -->
     <textarea
       id="editor"
-      class="prose-diary h-full w-full flex-1 resize-none bg-transparent p-5 md:p-7 outline-none placeholder:opacity-50"
+      class="prose-diary hidden h-full w-full flex-1 resize-none bg-transparent p-5 md:p-7 outline-none placeholder:opacity-50"
       style="color: var(--text)"
       placeholder="Start writing…  (Markdown supported)"
       spellcheck="true"
       data-entry-id={id ?? ''}
       data-created-at={createdAt ?? ''}
     >{content}</textarea>
+
+    <!-- Rich Editable Markdown Preview (Default Mode) -->
     <div
       id="preview"
-      class="prose-diary hidden h-full w-full flex-1 overflow-y-auto p-5 md:p-7"
+      class="prose-diary h-full w-full flex-1 overflow-y-auto p-5 md:p-7 outline-none"
+      contenteditable="true"
+      spellcheck="true"
+      data-placeholder="Start writing…  (Markdown supported)"
+      data-empty={!content.trim() ? 'true' : undefined}
+      set:html={initialHtml}
     ></div>
   </div>
 
@@ -213,6 +234,14 @@ const { id, content, createdAt } = Astro.props;
     color: var(--text);
     background: var(--surface-hover);
   }
+
+  #preview:empty::before,
+  #preview[data-empty='true']::before {
+    content: attr(data-placeholder);
+    color: var(--text-faint);
+    pointer-events: none;
+    display: block;
+  }
 </style>
 
 <script>
@@ -224,12 +253,14 @@ const { id, content, createdAt } = Astro.props;
   const toolbar = document.getElementById('editor-toolbar') as HTMLElement;
   const viewCodeBtn = document.getElementById('view-code-btn') as HTMLButtonElement;
   const previewBtn = document.getElementById('preview-btn') as HTMLButtonElement;
+  const chatAboutBtn = document.getElementById('chat-about-btn') as HTMLButtonElement | null;
   const deleteBtn = document.getElementById('delete-btn') as HTMLButtonElement | null;
   const saveText = document.getElementById('save-text') as HTMLElement;
   const saveDot = document.getElementById('save-dot') as HTMLElement;
   const wordCountEl = document.getElementById('word-count') as HTMLElement;
   const readTimeEl = document.getElementById('read-time') as HTMLElement;
 
+  let currentMode: 'preview' | 'code' = 'preview';
   let entryId = editor.dataset.entryId || null;
   let lastSaved = editor.value;
   let saveTimer: number | undefined;
@@ -248,15 +279,129 @@ const { id, content, createdAt } = Astro.props;
   }
 
   function updateCounts() {
-    const text = editor.value.trim();
+    const text = currentMode === 'preview'
+      ? (preview.textContent || '').trim()
+      : editor.value.trim();
     const words = text ? text.split(/\s+/).length : 0;
     wordCountEl.textContent = `${words} word${words === 1 ? '' : 's'}`;
     const mins = Math.max(1, Math.round(words / 200));
     readTimeEl.textContent = words > 0 ? `· ${mins} min read` : '';
+
+    if (currentMode === 'preview') {
+      if (!preview.textContent?.trim() && !preview.querySelector('img, hr')) {
+        preview.setAttribute('data-empty', 'true');
+      } else {
+        preview.removeAttribute('data-empty');
+      }
+    }
+  }
+
+  // HTML to Markdown Serializer
+  function htmlToMarkdown(root: HTMLElement): string {
+    if (!root.textContent?.trim() && !root.querySelector('img, hr')) {
+      return '';
+    }
+
+    function walk(node: Node): string {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.textContent || '';
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        return '';
+      }
+
+      const el = node as HTMLElement;
+      const tag = el.tagName.toLowerCase();
+      const getChildren = () => Array.from(el.childNodes).map(walk).join('');
+
+      switch (tag) {
+        case 'h1': return `# ${getChildren().trim()}\n\n`;
+        case 'h2': return `## ${getChildren().trim()}\n\n`;
+        case 'h3': return `### ${getChildren().trim()}\n\n`;
+        case 'h4': return `#### ${getChildren().trim()}\n\n`;
+        case 'h5': return `##### ${getChildren().trim()}\n\n`;
+        case 'h6': return `###### ${getChildren().trim()}\n\n`;
+
+        case 'strong':
+        case 'b': {
+          const text = getChildren();
+          return text.trim() ? `**${text}**` : text;
+        }
+
+        case 'em':
+        case 'i': {
+          const text = getChildren();
+          return text.trim() ? `*${text}*` : text;
+        }
+
+        case 'code': {
+          if (el.parentElement?.tagName.toLowerCase() === 'pre') {
+            return el.textContent || '';
+          }
+          return `\`${getChildren()}\``;
+        }
+
+        case 'pre': {
+          const codeText = el.querySelector('code')?.textContent ?? el.textContent ?? '';
+          return `\`\`\`\n${codeText.replace(/\n$/, '')}\n\`\`\`\n\n`;
+        }
+
+        case 'blockquote': {
+          const inner = getChildren().trim();
+          const lines = inner.split('\n');
+          return lines.map((l) => `> ${l}`).join('\n') + '\n\n';
+        }
+
+        case 'ul': {
+          return Array.from(el.children)
+            .map((li) => `- ${Array.from(li.childNodes).map(walk).join('').trim()}`)
+            .join('\n') + '\n\n';
+        }
+
+        case 'ol': {
+          return Array.from(el.children)
+            .map((li, idx) => `${idx + 1}. ${Array.from(li.childNodes).map(walk).join('').trim()}`)
+            .join('\n') + '\n\n';
+        }
+
+        case 'li':
+          return `- ${getChildren()}\n`;
+
+        case 'a': {
+          const href = el.getAttribute('href') || '';
+          return `[${getChildren()}](${href})`;
+        }
+
+        case 'hr':
+          return '---\n\n';
+
+        case 'br':
+          return '\n';
+
+        case 'p': {
+          const text = getChildren().trim();
+          return text ? `${text}\n\n` : '';
+        }
+
+        case 'div': {
+          const text = getChildren().trim();
+          return text ? `${text}\n\n` : '';
+        }
+
+        default:
+          return getChildren();
+      }
+    }
+
+    const raw = Array.from(root.childNodes).map(walk).join('');
+    return raw.replace(/\n{3,}/g, '\n\n').trim();
   }
 
   async function save(): Promise<void> {
     if (saving) return;
+    if (currentMode === 'preview') {
+      editor.value = htmlToMarkdown(preview);
+    }
     const content = editor.value;
     if (content === lastSaved) return;
     saving = true;
@@ -271,6 +416,7 @@ const { id, content, createdAt } = Astro.props;
         const entry = (await res.json()) as { id: string };
         entryId = entry.id;
         editor.dataset.entryId = entryId;
+        chatAboutBtn?.classList.remove('hidden');
         history.replaceState(null, '', `/diary/${entryId}`);
       } else {
         await fetch(`/api/entries/${entryId}`, {
@@ -290,7 +436,6 @@ const { id, content, createdAt } = Astro.props;
     }
   }
 
-  // Background, non-intrusive analysis after writing settles.
   function scheduleAnalyze() {
     window.clearTimeout(analyzeTimer);
     analyzeTimer = window.setTimeout(() => {
@@ -299,6 +444,21 @@ const { id, content, createdAt } = Astro.props;
     }, 4000);
   }
 
+  // Live editing in Preview mode
+  preview.addEventListener('input', () => {
+    editor.value = htmlToMarkdown(preview);
+    updateCounts();
+    setStatus('Editing…', 'dirty');
+    window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(() => void save(), 800);
+  });
+
+  preview.addEventListener('blur', () => {
+    editor.value = htmlToMarkdown(preview);
+    void save();
+  });
+
+  // Plain text editing in View Code mode
   editor.addEventListener('input', () => {
     updateCounts();
     setStatus('Editing…', 'dirty');
@@ -308,18 +468,23 @@ const { id, content, createdAt } = Astro.props;
 
   editor.addEventListener('blur', () => void save());
 
-  // Ctrl+S
+  // Global Ctrl+S
   document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.key.toLowerCase() === 's') {
       e.preventDefault();
+      if (currentMode === 'preview') {
+        editor.value = htmlToMarkdown(preview);
+      }
       window.clearTimeout(saveTimer);
       void save();
     }
   });
 
-  // Guard against accidental loss. sendBeacon can only POST, so we use it to
-  // create a not-yet-saved entry; existing entries are covered by blur/keepalive.
+  // Guard against accidental loss
   window.addEventListener('beforeunload', (e) => {
+    if (currentMode === 'preview') {
+      editor.value = htmlToMarkdown(preview);
+    }
     if (editor.value === lastSaved) return;
     const payload = new Blob([JSON.stringify({ content: editor.value })], {
       type: 'application/json',
@@ -335,26 +500,26 @@ const { id, content, createdAt } = Astro.props;
       });
     }
     e.preventDefault();
-    e.returnValue = '';
   });
 
   // Mode toggle (View Code vs Preview)
   function setMode(mode: 'code' | 'preview') {
+    currentMode = mode;
     if (mode === 'preview') {
-      preview.innerHTML = renderMarkdown(editor.value) || '<p style="color:var(--text-faint)">Nothing to preview yet.</p>';
+      preview.innerHTML = renderMarkdown(editor.value);
       editor.classList.add('hidden');
       preview.classList.remove('hidden');
-      toolbar.classList.add('opacity-40', 'pointer-events-none');
       viewCodeBtn.style.background = 'transparent';
       viewCodeBtn.style.color = 'var(--text-muted)';
       viewCodeBtn.style.boxShadow = 'none';
       previewBtn.style.background = 'var(--surface)';
       previewBtn.style.color = 'var(--text)';
       previewBtn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.08)';
+      preview.focus();
     } else {
+      editor.value = htmlToMarkdown(preview);
       preview.classList.add('hidden');
       editor.classList.remove('hidden');
-      toolbar.classList.remove('opacity-40', 'pointer-events-none');
       previewBtn.style.background = 'transparent';
       previewBtn.style.color = 'var(--text-muted)';
       previewBtn.style.boxShadow = 'none';
@@ -363,18 +528,160 @@ const { id, content, createdAt } = Astro.props;
       viewCodeBtn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.08)';
       editor.focus();
     }
+    updateCounts();
   }
 
   viewCodeBtn.addEventListener('click', () => setMode('code'));
   previewBtn.addEventListener('click', () => setMode('preview'));
 
-  // Markdown formatting helpers with smart toggle
+  // Unified formatting dispatcher
   function applyFormat(type: string) {
-    // If currently in preview mode, switch to code mode first
-    if (!preview.classList.contains('hidden')) {
-      setMode('code');
+    if (currentMode === 'preview') {
+      applyPreviewFormat(type);
+    } else {
+      applyCodeFormat(type);
+    }
+  }
+
+  // Formatting in Preview Mode (Direct DOM & execCommand)
+  function applyPreviewFormat(type: string) {
+    preview.focus();
+    switch (type) {
+      case 'bold':
+        document.execCommand('bold', false);
+        break;
+
+      case 'italic':
+        document.execCommand('italic', false);
+        break;
+
+      case 'heading': {
+        const sel = window.getSelection();
+        let isHeading = false;
+        if (sel && sel.rangeCount > 0) {
+          let node = sel.getRangeAt(0).commonAncestorContainer as Node | null;
+          if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+          if ((node as HTMLElement)?.closest('h1, h2, h3, h4, h5, h6')) {
+            isHeading = true;
+          }
+        }
+        if (isHeading) {
+          document.execCommand('formatBlock', false, '<p>');
+        } else {
+          document.execCommand('formatBlock', false, '<h3>');
+        }
+        break;
+      }
+
+      case 'quote': {
+        const sel = window.getSelection();
+        let isQuote = false;
+        if (sel && sel.rangeCount > 0) {
+          let node = sel.getRangeAt(0).commonAncestorContainer as Node | null;
+          if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+          if ((node as HTMLElement)?.closest('blockquote')) {
+            isQuote = true;
+          }
+        }
+        if (isQuote) {
+          document.execCommand('formatBlock', false, '<p>');
+        } else {
+          document.execCommand('formatBlock', false, '<blockquote>');
+        }
+        break;
+      }
+
+      case 'list':
+        document.execCommand('insertUnorderedList', false);
+        break;
+
+      case 'list-ordered':
+        document.execCommand('insertOrderedList', false);
+        break;
+
+      case 'code': {
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) break;
+        const range = sel.getRangeAt(0);
+        let node = range.commonAncestorContainer as Node | null;
+        if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+        const codeEl = (node as HTMLElement)?.closest('code');
+        if (codeEl && codeEl.parentElement?.tagName.toLowerCase() !== 'pre') {
+          codeEl.replaceWith(...codeEl.childNodes);
+        } else if (!range.collapsed) {
+          const code = document.createElement('code');
+          code.appendChild(range.extractContents());
+          range.insertNode(code);
+          sel.selectAllChildren(code);
+        } else {
+          const code = document.createElement('code');
+          code.textContent = 'code';
+          range.insertNode(code);
+          sel.selectAllChildren(code);
+        }
+        break;
+      }
+
+      case 'code-block': {
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) break;
+        const range = sel.getRangeAt(0);
+        let node = range.commonAncestorContainer as Node | null;
+        if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+        const preEl = (node as HTMLElement)?.closest('pre');
+        if (preEl) {
+          const p = document.createElement('p');
+          p.textContent = preEl.textContent || '';
+          preEl.replaceWith(p);
+        } else if (!range.collapsed) {
+          const pre = document.createElement('pre');
+          const code = document.createElement('code');
+          code.appendChild(range.extractContents());
+          pre.appendChild(code);
+          range.insertNode(pre);
+        } else {
+          const pre = document.createElement('pre');
+          const code = document.createElement('code');
+          code.textContent = 'code';
+          pre.appendChild(code);
+          range.insertNode(pre);
+          sel.selectAllChildren(code);
+        }
+        break;
+      }
+
+      case 'link': {
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) break;
+        const range = sel.getRangeAt(0);
+        let node = range.commonAncestorContainer as Node | null;
+        if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+        const a = (node as HTMLElement)?.closest('a');
+        if (a) {
+          a.replaceWith(...a.childNodes);
+        } else {
+          const url = prompt('Enter URL:', 'https://');
+          if (url) {
+            document.execCommand('createLink', false, url);
+          }
+        }
+        break;
+      }
+
+      case 'hr':
+        document.execCommand('insertHorizontalRule', false);
+        break;
     }
 
+    editor.value = htmlToMarkdown(preview);
+    updateCounts();
+    setStatus('Editing…', 'dirty');
+    window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(() => void save(), 800);
+  }
+
+  // Formatting in View Code Mode (Raw Markdown manipulation)
+  function applyCodeFormat(type: string) {
     const start = editor.selectionStart;
     const end = editor.selectionEnd;
     const text = editor.value;
@@ -382,7 +689,6 @@ const { id, content, createdAt } = Astro.props;
 
     switch (type) {
       case 'bold': {
-        // 1. If selection itself starts & ends with **
         if (selected.startsWith('**') && selected.endsWith('**') && selected.length >= 4) {
           const inner = selected.slice(2, -2);
           editor.setRangeText(inner, start, end, 'select');
@@ -390,7 +696,6 @@ const { id, content, createdAt } = Astro.props;
           break;
         }
 
-        // 2. If selection is surrounded by ** in the document
         if (
           start >= 2 &&
           end <= text.length - 2 &&
@@ -402,7 +707,6 @@ const { id, content, createdAt } = Astro.props;
           break;
         }
 
-        // 3. If cursor with no selection is inside **...** on current line
         if (start === end) {
           const lineStart = text.lastIndexOf('\n', start - 1) + 1;
           const lineEndIdx = text.indexOf('\n', start);
@@ -426,7 +730,6 @@ const { id, content, createdAt } = Astro.props;
           if (handled) break;
         }
 
-        // 4. Otherwise, wrap selection or insert placeholder
         if (selected) {
           editor.setRangeText(`**${selected}**`, start, end, 'select');
           editor.setSelectionRange(start + 2, end + 2);
@@ -438,7 +741,6 @@ const { id, content, createdAt } = Astro.props;
       }
 
       case 'italic': {
-        // 1. If selection itself is wrapped in single * (and not **)
         if (
           selected.startsWith('*') &&
           !selected.startsWith('**') &&
@@ -452,7 +754,6 @@ const { id, content, createdAt } = Astro.props;
           break;
         }
 
-        // 2. If selection is surrounded by single * in the document
         const before1 = text.slice(start - 1, start);
         const before2 = text.slice(start - 2, start - 1);
         const after1 = text.slice(end, end + 1);
@@ -470,7 +771,6 @@ const { id, content, createdAt } = Astro.props;
           break;
         }
 
-        // 3. If cursor with no selection is inside *...* on current line
         if (start === end) {
           const lineStart = text.lastIndexOf('\n', start - 1) + 1;
           const lineEndIdx = text.indexOf('\n', start);
@@ -494,7 +794,6 @@ const { id, content, createdAt } = Astro.props;
           if (handled) break;
         }
 
-        // 4. Otherwise, wrap or insert placeholder
         if (selected) {
           editor.setRangeText(`*${selected}*`, start, end, 'select');
           editor.setSelectionRange(start + 1, end + 1);
@@ -506,7 +805,6 @@ const { id, content, createdAt } = Astro.props;
       }
 
       case 'code': {
-        // 1. Inline code toggle
         if (selected.startsWith('`') && !selected.startsWith('```') && selected.endsWith('`') && !selected.endsWith('```') && selected.length >= 2) {
           const inner = selected.slice(1, -1);
           editor.setRangeText(inner, start, end, 'select');
@@ -526,7 +824,6 @@ const { id, content, createdAt } = Astro.props;
           break;
         }
 
-        // 2. Cursor inside inline code
         if (start === end) {
           const lineStart = text.lastIndexOf('\n', start - 1) + 1;
           const lineEndIdx = text.indexOf('\n', start);
@@ -550,7 +847,6 @@ const { id, content, createdAt } = Astro.props;
           if (handled) break;
         }
 
-        // 3. Otherwise, wrap or insert
         if (selected) {
           editor.setRangeText(`\`${selected}\``, start, end, 'select');
           editor.setSelectionRange(start + 1, end + 1);
@@ -562,7 +858,6 @@ const { id, content, createdAt } = Astro.props;
       }
 
       case 'code-block': {
-        // 1. Check if selected text is already a fenced code block
         if (/^```[\s\S]*```$/.test(selected.trim())) {
           const inner = selected.trim().replace(/^```[a-zA-Z0-9_-]*\n?/, '').replace(/\n?```$/, '');
           editor.setRangeText(inner, start, end, 'select');
@@ -570,7 +865,6 @@ const { id, content, createdAt } = Astro.props;
           break;
         }
 
-        // 2. Check if cursor/selection is inside a fenced code block
         const beforeText = text.slice(0, start);
         const afterText = text.slice(end);
         const lastOpenFence = beforeText.lastIndexOf('```');
@@ -588,7 +882,6 @@ const { id, content, createdAt } = Astro.props;
           }
         }
 
-        // 3. Otherwise, wrap selection or insert template
         if (selected) {
           const prefix = (start > 0 && text[start - 1] !== '\n') ? '\n```\n' : '```\n';
           const suffix = (end < text.length && text[end] !== '\n') ? '\n```\n' : '\n```';
@@ -604,7 +897,6 @@ const { id, content, createdAt } = Astro.props;
       }
 
       case 'link': {
-        // 1. Selected text is a link: [title](url)
         const match = selected.match(/^\[(.*?)\]\((.*?)\)$/);
         if (match && match[1] !== undefined) {
           const inner = match[1];
@@ -613,7 +905,6 @@ const { id, content, createdAt } = Astro.props;
           break;
         }
 
-        // 2. Selection is inside link brackets or surrounded by [ and ](...)
         const before = text.slice(0, start);
         const after = text.slice(end);
         if (before.endsWith('[') && /^\(.*?\)/.test(after)) {
@@ -623,7 +914,6 @@ const { id, content, createdAt } = Astro.props;
           break;
         }
 
-        // 3. Otherwise wrap or insert
         if (selected) {
           editor.setRangeText(`[${selected}](https://)`, start, end, 'select');
           const urlStart = start + selected.length + 3;
@@ -728,7 +1018,7 @@ const { id, content, createdAt } = Astro.props;
     editor.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
-  // Prevent toolbar buttons from stealing focus from editor on mousedown
+  // Prevent toolbar buttons from stealing focus on mousedown
   toolbar.querySelectorAll<HTMLButtonElement>('.toolbar-btn').forEach((btn) => {
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault();
@@ -750,6 +1040,48 @@ const { id, content, createdAt } = Astro.props;
     }
   });
 
+  preview.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key.toLowerCase() === 'b') {
+      e.preventDefault();
+      applyFormat('bold');
+    } else if (e.ctrlKey && e.key.toLowerCase() === 'i') {
+      e.preventDefault();
+      applyFormat('italic');
+    }
+  });
+
+  // Chat about this
+  chatAboutBtn?.addEventListener('click', async () => {
+    chatAboutBtn.disabled = true;
+    const origHtml = chatAboutBtn.innerHTML;
+    chatAboutBtn.innerHTML = 'Opening chat…';
+
+    try {
+      // Save current changes first if needed
+      await save();
+      if (!entryId) {
+        showToast('Save the entry first before chatting', 'info');
+        chatAboutBtn.disabled = false;
+        chatAboutBtn.innerHTML = origHtml;
+        return;
+      }
+
+      const res = await fetch('/api/chat/from-entry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entryId }),
+      });
+
+      if (!res.ok) throw new Error('Could not start chat');
+      const data = (await res.json()) as { conversationId: string };
+      window.location.href = `/chat?c=${data.conversationId}`;
+    } catch {
+      showToast('Could not open chat about this entry', 'error');
+      chatAboutBtn.disabled = false;
+      chatAboutBtn.innerHTML = origHtml;
+    }
+  });
+
   // Delete
   deleteBtn?.addEventListener('click', async () => {
     if (!entryId) return;
@@ -764,6 +1096,6 @@ const { id, content, createdAt } = Astro.props;
   });
 
   updateCounts();
-  if (!entryId) editor.focus();
+  if (!entryId) preview.focus();
   setStatus(entryId ? 'All changes saved' : 'Ready', entryId ? 'saved' : 'idle');
 </script>

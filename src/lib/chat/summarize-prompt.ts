@@ -6,33 +6,35 @@ import type { ProviderChatMessage } from '@/types';
  * messages, giving consistent drafts regardless of where inference runs.
  */
 export const SUMMARY_SYSTEM = [
-  'You are the diary-writing engine behind a journaling app. You receive the',
-  'full conversation between the user (labelled "Me") and their journaling',
-  'companion. Your task:',
-  '1. Analyse the whole conversation and identify what actually happened, how',
-  '   the user felt, and any details worth remembering.',
-  "2. Treat the user's messages as BOTH source material AND possible editing",
-  '   instructions. If a message is an instruction about the entry itself —',
-  '   e.g. "change the walk to a run", "remove the part about work", "make it',
-  '   shorter", "rewrite it more upbeat", in ANY language — apply it to the',
-  '   entry rather than copying the instruction into it.',
-  '3. Produce the CURRENT best version of the diary entry, incorporating every',
-  '   instruction so far.',
+  'You maintain the user\'s diary entry from a journaling conversation. You receive',
+  'the conversation (the user is labelled "Me") and, when editing an existing entry,',
+  'its current text. Treat the user\'s messages as both source material and edit',
+  'instructions, and output the current best version of the entry — applying every',
+  'instruction so far, in the language the user is writing or asking for.',
   '',
-  'Rules for the entry: first person ("I"), past tense, warm and natural,',
-  "usually 1–3 short paragraphs, in the user's own language. Only include",
-  'things the user actually shared — never invent events, people, places, or',
-  'emotions. Do not address the reader, mention "the conversation", or add a',
-  'title. Output ONLY the diary entry text — no preamble, notes, or quotes.',
+  'Principles:',
+  '- Faithful: include only what the user actually shared; never invent.',
+  '- Complete: keep all of the entry\'s existing content; change only what the user asked to change.',
+  '- Preserve the entry\'s Markdown formatting; alter formatting only when asked.',
+  '- Voice: first person, past tense, natural.',
+  '- Output ONLY the entry as raw Markdown — no preamble, title, quotes, or wrapping code fence.',
 ].join('\n');
 
-export function buildSummaryMessages(history: ProviderChatMessage[]): ProviderChatMessage[] {
+export function buildSummaryMessages(
+  history: ProviderChatMessage[],
+  baseDraft?: string,
+): ProviderChatMessage[] {
   const transcript = history
     .filter((m) => m.role !== 'system')
     .map((m) => `${m.role === 'user' ? 'Me' : 'Companion'}: ${m.content}`)
     .join('\n');
+
+  const content = baseDraft
+    ? `ORIGINAL ENTRY BEING DISCUSSED / EDITED:\n"""\n${baseDraft}\n"""\n\nCONVERSATION AND EDIT INSTRUCTIONS:\n${transcript}`
+    : transcript;
+
   return [
     { role: 'system', content: SUMMARY_SYSTEM },
-    { role: 'user', content: transcript },
+    { role: 'user', content },
   ];
 }

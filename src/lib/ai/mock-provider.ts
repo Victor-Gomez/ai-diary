@@ -139,21 +139,36 @@ export class MockAIProvider implements AIProvider {
 
   async chat(messages: ProviderChatMessage[]): Promise<string> {
     const last = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
+    if (isTranslationRequest(last)) return answerTranslation(messages, last);
     if (isRefinement(last)) return acknowledgeRefinement();
     return answerFromContext(messages);
   }
 
-  async summarizeConversation(messages: ProviderChatMessage[]): Promise<string> {
+  async summarizeConversation(messages: ProviderChatMessage[], baseDraft?: string): Promise<string> {
     // Heuristic: build a first-person entry from what the user actually said,
     // applying any refinement instructions ("change X to Y", "remove X",
-    // "make it shorter") in order. A real provider rewrites into prose; the mock
-    // stays faithful to the user's own words and edits.
+    // "make it shorter", "translate to Spanish") in order.
+    let draft = baseDraft ?? '';
+
+    if (!draft) {
+      const sys = messages.find(
+        (m) =>
+          m.role === 'system' &&
+          (m.content.includes('ORIGINAL ENTRY') ||
+            m.content.includes('CURRENT FOCUSED ENTRY') ||
+            m.content.includes('DIARY CONTEXT')),
+      );
+      if (sys) {
+        const match = sys.content.match(/"""\n?([\s\S]*?)\n?"""/);
+        if (match) draft = match[1]!.trim();
+      }
+    }
+
     const userTurns = messages
       .filter((m) => m.role === 'user')
       .map((m) => m.content.trim())
       .filter((t) => t.length > 0);
 
-    let draft = '';
     for (const turn of userTurns) {
       if (isRefinement(turn)) {
         draft = applyRefinement(draft, turn);
@@ -167,7 +182,11 @@ export class MockAIProvider implements AIProvider {
 
   chatStream(messages: ProviderChatMessage[]): AsyncIterable<string> {
     const last = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
-    const text = isRefinement(last) ? acknowledgeRefinement() : answerFromContext(messages);
+    const text = isTranslationRequest(last)
+      ? answerTranslation(messages, last)
+      : isRefinement(last)
+        ? acknowledgeRefinement()
+        : answerFromContext(messages);
     return singleChunk(text);
   }
 
@@ -224,10 +243,311 @@ function deaccent(s: string): string {
 // Imperative stems that mark a message as an edit instruction (EN + ES),
 // tested against a de-accented, lower-cased copy of the message.
 const REFINEMENT_START =
-  /^\s*(?:change|replace|swap|instead of|remove|delete|take out|drop|make it|rewrite|reword|shorten|shorter|condense|expand|also (?:add|mention|include)|add that|include that|i\s*don'?t like|don'?t like|cambia|cambial|reemplaza|reemplazal|sustituye|sustituyel|pon |quita|quital|elimina|eliminal|borra|borral|saca|sacal|anade|anadel|agrega|agregal|incluye|incluyel|compacta|compactal|acorta|acortal|resume|resumel|resumir|reescrib|reformula|hazlo|haz que|mas corto|mas breve|mas largo|no me gusta)/i;
+  /^\s*(?:(?:can|could)\s+you\s+(?:please\s+)?|please\s+|por\s+favor\s+)?(?:change|replace|swap|instead of|remove|delete|take out|drop|make it|rewrite|reword|shorten|shorter|condense|expand|also (?:add|mention|include)|add that|include that|i\s*don'?t like|don'?t like|translate|traduc\w*|traduccion|translation|cambia\w*|reemplaza\w*|sustituye\w*|pon |quita\w*|elimina\w*|borra\w*|saca\w*|anade\w*|agrega\w*|incluye\w*|compacta\w*|acorta\w*|resume\w*|resumir|reescrib\w*|reformula\w*|hazlo|haz que|mas corto|mas breve|mas largo|no me gusta)/i;
+
+function isTranslationRequest(text: string): boolean {
+  const de = deaccent(text).toLowerCase();
+  return /\b(?:translate|traduc\w*|traduccion|translation)\b/i.test(de);
+}
 
 function isRefinement(text: string): boolean {
-  return REFINEMENT_START.test(deaccent(text));
+  const de = deaccent(text);
+  return REFINEMENT_START.test(de) || isTranslationRequest(de);
+}
+
+function detectTargetLanguage(text: string): 'es' | 'en' | 'other' {
+  const t = deaccent(text).toLowerCase();
+  if (/spanish|espanol|castellano/i.test(t)) return 'es';
+  if (/english|ingles/i.test(t)) return 'en';
+  return 'es';
+}
+
+const EN_TO_ES_PHRASES: [RegExp, string][] = [
+  [/\btoday was a really good day\b/gi, 'hoy fue un día realmente bueno'],
+  [/\btoday was a really productive day\b/gi, 'hoy fue un día realmente productivo'],
+  [/\btoday was a really tough day\b/gi, 'hoy fue un día realmente difícil'],
+  [/\btoday was a good day\b/gi, 'hoy fue un buen día'],
+  [/\btoday was a great day\b/gi, 'hoy fue un gran día'],
+  [/\btoday was a tough day\b/gi, 'hoy fue un día difícil'],
+  [/\btoday was a quiet day\b/gi, 'hoy fue un día tranquilo'],
+  [/\btoday was a busy day\b/gi, 'hoy fue un día ajetreado'],
+  [/\btoday was\b/gi, 'hoy fue'],
+  [/\btoday i went to\b/gi, 'hoy fui a'],
+  [/\btoday i felt\b/gi, 'hoy me sentí'],
+  [/\btoday i\b/gi, 'hoy'],
+  [/\byesterday was\b/gi, 'ayer fue'],
+  [/\byesterday i went to\b/gi, 'ayer fui a'],
+  [/\byesterday i\b/gi, 'ayer'],
+  [/\bin the morning\b/gi, 'por la mañana'],
+  [/\bin the afternoon\b/gi, 'por la tarde'],
+  [/\bin the evening\b/gi, 'por la noche'],
+  [/\bat night\b/gi, 'por la noche'],
+  [/\bi went to\b/gi, 'fui a'],
+  [/\bi went for a walk\b/gi, 'fui a dar un paseo'],
+  [/\bi went for a run\b/gi, 'salí a correr'],
+  [/\bi had a coffee\b/gi, 'tomé un café'],
+  [/\bi had lunch\b/gi, 'almorcé'],
+  [/\bi had dinner\b/gi, 'cené'],
+  [/\bi had breakfast\b/gi, 'desayuné'],
+  [/\bi felt like\b/gi, 'sentí como'],
+  [/\bi felt\b/gi, 'me sentí'],
+  [/\bi feel\b/gi, 'me siento'],
+  [/\bi decided to\b/gi, 'decidí'],
+  [/\bi spent time\b/gi, 'pasé tiempo'],
+  [/\bi spent\b/gi, 'pasé'],
+  [/\bi talked with\b/gi, 'hablé con'],
+  [/\bi talked to\b/gi, 'hablé con'],
+  [/\bi met with\b/gi, 'me reuní con'],
+  [/\bi worked on\b/gi, 'trabajé en'],
+  [/\bi stayed home\b/gi, 'me quedé en casa'],
+  [/\bi stayed at home\b/gi, 'me quedé en casa'],
+  [/\beverything went smoothly\b/gi, 'todo salió muy bien'],
+  [/\bit was great\b/gi, 'fue genial'],
+  [/\bit was wonderful\b/gi, 'fue maravilloso'],
+  [/\bit was nice\b/gi, 'estuvo bien'],
+  [/\blooking forward to\b/gi, 'con ganas de'],
+  [/\bi hope tomorrow\b/gi, 'espero que mañana'],
+];
+
+const EN_TO_ES_WORDS: Record<string, string> = {
+  coffee: 'café',
+  work: 'trabajo',
+  office: 'oficina',
+  project: 'proyecto',
+  meeting: 'reunión',
+  deadline: 'fecha límite',
+  boss: 'jefe',
+  colleague: 'colega',
+  colleagues: 'colegas',
+  park: 'parque',
+  walk: 'paseo',
+  walking: 'caminando',
+  gym: 'gimnasio',
+  workout: 'entrenamiento',
+  running: 'corriendo',
+  run: 'carrera',
+  home: 'casa',
+  house: 'casa',
+  friend: 'amigo',
+  friends: 'amigos',
+  family: 'familia',
+  parents: 'padres',
+  mom: 'mamá',
+  dad: 'papá',
+  sister: 'hermana',
+  brother: 'hermano',
+  lunch: 'almuerzo',
+  dinner: 'cena',
+  breakfast: 'desayuno',
+  food: 'comida',
+  book: 'libro',
+  music: 'música',
+  movie: 'película',
+  trip: 'viaje',
+  travel: 'viaje',
+  vacation: 'vacaciones',
+  beach: 'playa',
+  happy: 'feliz',
+  glad: 'contento',
+  grateful: 'agradecido',
+  calm: 'tranquilo',
+  relaxed: 'relajado',
+  peaceful: 'pacífico',
+  excited: 'emocionado',
+  tired: 'cansado',
+  exhausted: 'agotado',
+  stressed: 'estresado',
+  anxious: 'ansioso',
+  worried: 'preocupado',
+  sad: 'triste',
+  good: 'bueno',
+  great: 'genial',
+  bad: 'malo',
+  really: 'realmente',
+  very: 'muy',
+  and: 'y',
+  with: 'con',
+  without: 'sin',
+  because: 'porque',
+  but: 'pero',
+  also: 'también',
+  then: 'entonces',
+  now: 'ahora',
+  today: 'hoy',
+  yesterday: 'ayer',
+  tomorrow: 'mañana',
+  day: 'día',
+  days: 'días',
+  week: 'semana',
+  night: 'noche',
+  morning: 'mañana',
+  afternoon: 'tarde',
+};
+
+const ES_TO_EN_PHRASES: [RegExp, string][] = [
+  [/\bhoy fue un dia realmente bueno\b/gi, 'Today was a really good day'],
+  [/\bhoy fue un buen dia\b/gi, 'Today was a good day'],
+  [/\bhoy fue un gran dia\b/gi, 'Today was a great day'],
+  [/\bhoy fue un dia dificil\b/gi, 'Today was a tough day'],
+  [/\bhoy fue un dia tranquilo\b/gi, 'Today was a quiet day'],
+  [/\bhoy fue\b/gi, 'Today was'],
+  [/\bhoy fui a\b/gi, 'Today I went to'],
+  [/\bhoy me senti\b/gi, 'Today I felt'],
+  [/\bhoy\b/gi, 'Today'],
+  [/\bayer fue\b/gi, 'Yesterday was'],
+  [/\bayer fui a\b/gi, 'Yesterday I went to'],
+  [/\bayer\b/gi, 'Yesterday'],
+  [/\bpor la manana\b/gi, 'In the morning'],
+  [/\bpor la tarde\b/gi, 'In the afternoon'],
+  [/\bpor la noche\b/gi, 'In the evening'],
+  [/\bfui a dar un paseo\b/gi, 'I went for a walk'],
+  [/\bfui a\b/gi, 'I went to'],
+  [/\btome un cafe\b/gi, 'I had a coffee'],
+  [/\bme senti\b/gi, 'I felt'],
+  [/\bme siento\b/gi, 'I feel'],
+  [/\bdecidi\b/gi, 'I decided to'],
+  [/\bpase tiempo\b/gi, 'I spent time'],
+  [/\bhable con\b/gi, 'I talked with'],
+  [/\bme reuni con\b/gi, 'I met with'],
+  [/\btrabaje en\b/gi, 'I worked on'],
+  [/\bme quede en casa\b/gi, 'I stayed home'],
+  [/\btodo salio muy bien\b/gi, 'Everything went smoothly'],
+  [/\bfue genial\b/gi, 'It was great'],
+  [/\bfue maravilloso\b/gi, 'It was wonderful'],
+];
+
+const ES_TO_EN_WORDS: Record<string, string> = {
+  cafe: 'coffee',
+  trabajo: 'work',
+  oficina: 'office',
+  proyecto: 'project',
+  reunion: 'meeting',
+  parque: 'park',
+  paseo: 'walk',
+  gimnasio: 'gym',
+  casa: 'home',
+  amigo: 'friend',
+  amigos: 'friends',
+  familia: 'family',
+  almuerzo: 'lunch',
+  cena: 'dinner',
+  desayuno: 'breakfast',
+  comida: 'food',
+  libro: 'book',
+  musica: 'music',
+  pelicula: 'movie',
+  viaje: 'trip',
+  vacaciones: 'vacation',
+  playa: 'beach',
+  feliz: 'happy',
+  contento: 'glad',
+  tranquilo: 'calm',
+  relajado: 'relaxed',
+  cansado: 'tired',
+  agotado: 'exhausted',
+  estresado: 'stressed',
+  triste: 'sad',
+  bueno: 'good',
+  genial: 'great',
+  malo: 'bad',
+  realmente: 'really',
+  muy: 'very',
+  y: 'and',
+  con: 'with',
+  sin: 'without',
+  porque: 'because',
+  pero: 'but',
+  tambien: 'also',
+  entonces: 'then',
+  ahora: 'now',
+  hoy: 'today',
+  ayer: 'yesterday',
+  manana: 'tomorrow',
+  dia: 'day',
+  dias: 'days',
+  semana: 'week',
+  noche: 'night',
+  tarde: 'afternoon',
+};
+
+function mockTranslate(text: string, targetLang: string): string {
+  if (!text.trim()) return text;
+  if (targetLang === 'en') {
+    let result = text;
+    for (const [pattern, replacement] of ES_TO_EN_PHRASES) {
+      result = result.replace(pattern, replacement);
+    }
+    const words = result.split(/(\b[A-Za-zÀ-ÿ]+\b)/g);
+    result = words
+      .map((w) => {
+        const cleanW = deaccent(w.toLowerCase());
+        const mapped = ES_TO_EN_WORDS[cleanW];
+        if (mapped) {
+          if (w[0] === w[0]?.toUpperCase()) {
+            return mapped[0]?.toUpperCase() + mapped.slice(1);
+          }
+          return mapped;
+        }
+        return w;
+      })
+      .join('');
+    return result.replace(/(?:^|[.!?]\s+)[a-z]/g, (match) => match.toUpperCase());
+  }
+
+  let result = text;
+  for (const [pattern, replacement] of EN_TO_ES_PHRASES) {
+    result = result.replace(pattern, replacement);
+  }
+  const words = result.split(/(\b[A-Za-zÀ-ÿ']+\b)/g);
+  result = words
+    .map((w) => {
+      const cleanW = w.toLowerCase().replace(/'s$/, '');
+      const mapped = EN_TO_ES_WORDS[cleanW];
+      if (mapped) {
+        if (w[0] === w[0]?.toUpperCase()) {
+          return mapped[0]?.toUpperCase() + mapped.slice(1);
+        }
+        return mapped;
+      }
+      return w;
+    })
+    .join('');
+  return result.replace(/(?:^|[.!?]\s+)[a-z]/g, (match) => match.toUpperCase());
+}
+
+function answerTranslation(messages: ProviderChatMessage[], instruction: string): string {
+  let entryText = '';
+  const sys = messages.find(
+    (m) =>
+      m.role === 'system' &&
+      (m.content.includes('CURRENT FOCUSED ENTRY') ||
+        m.content.includes('ORIGINAL ENTRY') ||
+        m.content.includes('DIARY CONTEXT')),
+  );
+  if (sys) {
+    const match = sys.content.match(/"""\n?([\s\S]*?)\n?"""/);
+    if (match) {
+      entryText = match[1]!.trim();
+    } else {
+      const parts = sys.content.split(/(?:--- Entry from |- \[)/);
+      if (parts.length > 1) {
+        const first = parts[1]!.split(/LONG-TERM MEMORIES/)[0] ?? parts[1]!;
+        const lines = first.split('\n');
+        lines.shift();
+        entryText = lines.join('\n').trim();
+      }
+    }
+  }
+
+  const targetLang = detectTargetLanguage(instruction);
+  const langName = targetLang === 'es' ? 'Spanish' : targetLang === 'en' ? 'English' : 'your requested language';
+
+  if (!entryText) {
+    return `I couldn't find the entry to translate. Please make sure the entry is opened or shared.`;
+  }
+
+  const translated = mockTranslate(entryText, targetLang);
+  return `Here is the translation of your entry into ${langName}:\n\n${translated}\n\nI've also updated the draft on the right so you can review and click **Update** to save it.`;
 }
 
 function acknowledgeRefinement(): string {
@@ -245,9 +565,17 @@ function clean(s: string): string {
 }
 
 function tidy(draft: string): string {
+  // Collapse only runs of spaces/tabs — never newlines — so Markdown structure
+  // (lists, headings, line breaks) survives refinement operations.
   return draft
     .split('\n\n')
-    .map((p) => p.replace(/\s{2,}/g, ' ').replace(/\s+([.,!?])/g, '$1').trim())
+    .map((p) =>
+      p
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/[ \t]+([.,!?])/g, '$1')
+        .replace(/[ \t]+\n/g, '\n')
+        .trim(),
+    )
     .filter((p) => p.length > 0)
     .join('\n\n')
     .trim();
@@ -260,6 +588,11 @@ function tidy(draft: string): string {
  */
 function applyRefinement(draft: string, instruction: string): string {
   const t = deaccent(instruction.trim());
+
+  if (isTranslationRequest(instruction)) {
+    const targetLang = detectTargetLanguage(instruction);
+    return tidy(mockTranslate(draft, targetLang));
+  }
 
   // "(I) don't like X, change it to Y"  |  "no me gusta X, cambialo por Y"
   let m =
@@ -398,8 +731,12 @@ function answerFromContext(messages: ProviderChatMessage[]): string {
   );
   const context = contextMsg?.content ?? '';
 
+  // Check if there is a focused entry
+  const focusedMatch = context.match(/CURRENT FOCUSED ENTRY \([^)]*dated ([^)]+)\):\n"""\n([\s\S]*?)\n"""/);
+  const focusedEntry = focusedMatch ? { date: focusedMatch[1]!.trim(), content: focusedMatch[2]!.trim() } : null;
+
   const contextBody = context.split('DIARY CONTEXT')[1] ?? '';
-  const hasContext = contextBody.replace(/[-\s]/g, '').length > 0 && !/\(no relevant entries/i.test(context);
+  const hasContext = (Boolean(focusedEntry) || contextBody.replace(/[-\s]/g, '').length > 0) && !/\(no relevant entries/i.test(context);
 
   if (!hasContext) {
     // No matching diary entries. This is also the reflective-journaling path:
@@ -411,36 +748,73 @@ function answerFromContext(messages: ProviderChatMessage[]): string {
     );
   }
 
-  const qTerms = new Set(
-    tokenize(question).filter((w) => w.length > 3 && !STOPWORDS.has(w)),
-  );
-  // Only real entry lines (they start with "- [date] ..."); ignore headers.
-  const entryLines = contextBody
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l.startsWith('-'))
-    .map((l) => l.replace(/^-\s*/, ''));
+  // If there's a focused entry, check if the user is asking about it
+  if (focusedEntry) {
+    const deQ = deaccent(question).toLowerCase();
+    const isAboutEntry =
+      /(?:what|tell|about|summary|summarize|explain|did i|happened|entry|write|read|content|all|whole|full|que|de que|cuenta|entrada)/i.test(deQ) ||
+      tokenize(question).length <= 4;
 
-  if (entryLines.length === 0) {
+    if (isAboutEntry) {
+      return (
+        `In your entry from **${focusedEntry.date}**, you wrote:\n\n` +
+        `> ${focusedEntry.content.replace(/\n+/g, '\n> ')}\n\n` +
+        `What would you like to explore or adjust about this entry?`
+      );
+    }
+  }
+
+  // Parse multi-line entry blocks from context
+  const entryBlocks: { date: string; content: string }[] = [];
+  if (focusedEntry) {
+    entryBlocks.push(focusedEntry);
+  }
+
+  const parts = contextBody.split(/(?:--- Entry from |- \[)/);
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed || trimmed.startsWith('relevant entries') || trimmed.startsWith('LONG-TERM MEMORIES')) continue;
+    const endHeader = trimmed.indexOf('---');
+    const endBracket = trimmed.indexOf(']');
+    let date = '';
+    let content = '';
+    if (endHeader !== -1 && (endBracket === -1 || endHeader < endBracket)) {
+      date = trimmed.slice(0, endHeader).trim();
+      content = trimmed.slice(endHeader + 3).trim();
+    } else if (endBracket !== -1) {
+      date = trimmed.slice(0, endBracket).trim();
+      content = trimmed.slice(endBracket + 1).trim();
+    } else {
+      content = trimmed;
+    }
+    content = content.split('LONG-TERM MEMORIES')[0]?.trim() ?? content;
+    if (content && !entryBlocks.some((b) => b.content === content)) {
+      entryBlocks.push({ date, content });
+    }
+  }
+
+  if (entryBlocks.length === 0) {
     return "I couldn't find diary entries related to that. Try writing more, or rephrasing — I can only answer from what you've actually written.";
   }
 
-  const scored = entryLines
-    .map((line) => ({
-      line,
-      overlap: tokenize(line).filter((w) => qTerms.has(w)).length,
+  const qTerms = new Set(
+    tokenize(question).filter((w) => w.length > 3 && !STOPWORDS.has(w)),
+  );
+
+  const scored = entryBlocks
+    .map((b) => ({
+      date: b.date,
+      content: b.content,
+      overlap: tokenize(b.content).filter((w) => qTerms.has(w)).length,
     }))
     .sort((a, b) => b.overlap - a.overlap);
 
-  const relevant = (scored.some((s) => s.overlap > 0)
-    ? scored.filter((s) => s.overlap > 0)
-    : scored
-  )
-    .slice(0, 4)
-    .map((s) => s.line);
+  const relevant = (scored.some((s) => s.overlap > 0) ? scored.filter((s) => s.overlap > 0) : scored).slice(0, 3);
 
   const intro = "Based on your diary, here's what I found:";
-  const body = relevant.map((l) => `- ${l}`).join('\n');
+  const body = relevant
+    .map((r) => `- **[${r.date}]**: ${r.content.length > 300 ? `${r.content.slice(0, 300)}…` : r.content}`)
+    .join('\n\n');
   const outro =
     '\n\nThis reflects only what you wrote — I haven\'t added anything that isn\'t in your entries.';
   return `${intro}\n\n${body}${outro}`;
