@@ -34,12 +34,34 @@ const { id, content, createdAt } = Astro.props;
         <span class="inline-block h-1.5 w-1.5 rounded-full" style="background: var(--border-strong)" id="save-dot"></span>
         <span id="save-text">Ready</span>
       </span>
-      <button type="button" id="preview-toggle" class="btn btn-ghost px-2.5 py-1.5 text-xs" aria-pressed="false">
-        <Icon name="book" size={15} /> Preview
-      </button>
+
+      <!-- Segmented View Code / Preview switch -->
+      <div class="flex items-center rounded-lg p-0.5 border" style="background: var(--surface-2); border-color: var(--border)">
+        <button
+          type="button"
+          id="view-code-btn"
+          class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
+          style="background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.08);"
+          title="Edit markdown plain text"
+        >
+          <Icon name="code" size={13} />
+          <span>View Code</span>
+        </button>
+        <button
+          type="button"
+          id="preview-btn"
+          class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
+          style="background: transparent; color: var(--text-muted);"
+          title="Preview formatted markdown"
+        >
+          <Icon name="book" size={13} />
+          <span>Preview</span>
+        </button>
+      </div>
+
       {
         id && (
-          <button type="button" id="delete-btn" class="btn btn-danger px-2.5 py-1.5 text-xs">
+          <button type="button" id="delete-btn" class="btn btn-danger px-2.5 py-1.5 text-xs" title="Delete entry">
             <Icon name="trash" size={15} />
           </button>
         )
@@ -49,6 +71,113 @@ const { id, content, createdAt } = Astro.props;
 
   <!-- Writing surface -->
   <div class="editor-surface relative mb-6 flex-1 flex flex-col rounded-xl overflow-hidden shadow-xs">
+    <!-- Formatting toolbar -->
+    <div
+      id="editor-toolbar"
+      class="flex flex-wrap items-center gap-0.5 border-b px-2 py-1 text-xs transition-opacity"
+      style="border-color: var(--border); background: var(--surface-2);"
+    >
+      <button
+        type="button"
+        class="toolbar-btn flex items-center justify-center rounded p-1.5 transition-colors"
+        data-format="bold"
+        title="Bold (Ctrl+B)"
+        aria-label="Bold"
+      >
+        <Icon name="bold" size={15} />
+      </button>
+      <button
+        type="button"
+        class="toolbar-btn flex items-center justify-center rounded p-1.5 transition-colors"
+        data-format="italic"
+        title="Italic (Ctrl+I)"
+        aria-label="Italic"
+      >
+        <Icon name="italic" size={15} />
+      </button>
+
+      <div class="mx-1 h-3.5 w-px self-center" style="background: var(--border)"></div>
+
+      <button
+        type="button"
+        class="toolbar-btn flex items-center justify-center rounded p-1.5 transition-colors"
+        data-format="heading"
+        title="Heading (###)"
+        aria-label="Heading"
+      >
+        <Icon name="heading" size={15} />
+      </button>
+      <button
+        type="button"
+        class="toolbar-btn flex items-center justify-center rounded p-1.5 transition-colors"
+        data-format="quote"
+        title="Blockquote (>)"
+        aria-label="Quote"
+      >
+        <Icon name="quote" size={15} />
+      </button>
+
+      <div class="mx-1 h-3.5 w-px self-center" style="background: var(--border)"></div>
+
+      <button
+        type="button"
+        class="toolbar-btn flex items-center justify-center rounded p-1.5 transition-colors"
+        data-format="list"
+        title="Bulleted List (-)"
+        aria-label="Bulleted list"
+      >
+        <Icon name="list" size={15} />
+      </button>
+      <button
+        type="button"
+        class="toolbar-btn flex items-center justify-center rounded p-1.5 transition-colors"
+        data-format="list-ordered"
+        title="Numbered List (1.)"
+        aria-label="Numbered list"
+      >
+        <Icon name="listOrdered" size={15} />
+      </button>
+
+      <div class="mx-1 h-3.5 w-px self-center" style="background: var(--border)"></div>
+
+      <button
+        type="button"
+        class="toolbar-btn flex items-center justify-center rounded p-1.5 transition-colors"
+        data-format="code"
+        title="Inline Code (`code`)"
+        aria-label="Inline Code"
+      >
+        <Icon name="code" size={15} />
+      </button>
+      <button
+        type="button"
+        class="toolbar-btn flex items-center justify-center rounded p-1.5 transition-colors"
+        data-format="code-block"
+        title="Code Block (```)"
+        aria-label="Code Block"
+      >
+        <Icon name="squareCode" size={15} />
+      </button>
+      <button
+        type="button"
+        class="toolbar-btn flex items-center justify-center rounded p-1.5 transition-colors"
+        data-format="link"
+        title="Link ([title](url))"
+        aria-label="Link"
+      >
+        <Icon name="link" size={15} />
+      </button>
+      <button
+        type="button"
+        class="toolbar-btn flex items-center justify-center rounded p-1.5 transition-colors"
+        data-format="hr"
+        title="Divider (---)"
+        aria-label="Divider"
+      >
+        <Icon name="minus" size={15} />
+      </button>
+    </div>
+
     <textarea
       id="editor"
       class="prose-diary h-full w-full flex-1 resize-none bg-transparent p-5 md:p-7 outline-none placeholder:opacity-50"
@@ -72,9 +201,19 @@ const { id, content, createdAt } = Astro.props;
     <span id="word-count">0 words</span>
     <span id="read-time"></span>
     <span class="ml-auto flex items-center gap-1"><Icon name="lock" size={11} /> Encrypted &amp; local</span>
-    <kbd class="chip text-[10px]">⌘/Ctrl+S</kbd>
+    <kbd class="chip text-[10px]">Ctrl+S</kbd>
   </footer>
 </div>
+
+<style>
+  .toolbar-btn {
+    color: var(--text-muted);
+  }
+  .toolbar-btn:hover {
+    color: var(--text);
+    background: var(--surface-hover);
+  }
+</style>
 
 <script>
   import { showToast } from '../../lib/client/toast';
@@ -82,7 +221,9 @@ const { id, content, createdAt } = Astro.props;
 
   const editor = document.getElementById('editor') as HTMLTextAreaElement;
   const preview = document.getElementById('preview') as HTMLElement;
-  const previewToggle = document.getElementById('preview-toggle') as HTMLButtonElement;
+  const toolbar = document.getElementById('editor-toolbar') as HTMLElement;
+  const viewCodeBtn = document.getElementById('view-code-btn') as HTMLButtonElement;
+  const previewBtn = document.getElementById('preview-btn') as HTMLButtonElement;
   const deleteBtn = document.getElementById('delete-btn') as HTMLButtonElement | null;
   const saveText = document.getElementById('save-text') as HTMLElement;
   const saveDot = document.getElementById('save-dot') as HTMLElement;
@@ -167,9 +308,9 @@ const { id, content, createdAt } = Astro.props;
 
   editor.addEventListener('blur', () => void save());
 
-  // Ctrl/Cmd+S
+  // Ctrl+S
   document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+    if (e.ctrlKey && e.key.toLowerCase() === 's') {
       e.preventDefault();
       window.clearTimeout(saveTimer);
       void save();
@@ -197,19 +338,415 @@ const { id, content, createdAt } = Astro.props;
     e.returnValue = '';
   });
 
-  // Preview toggle
-  let previewing = false;
-  previewToggle.addEventListener('click', () => {
-    previewing = !previewing;
-    previewToggle.setAttribute('aria-pressed', String(previewing));
-    if (previewing) {
+  // Mode toggle (View Code vs Preview)
+  function setMode(mode: 'code' | 'preview') {
+    if (mode === 'preview') {
       preview.innerHTML = renderMarkdown(editor.value) || '<p style="color:var(--text-faint)">Nothing to preview yet.</p>';
       editor.classList.add('hidden');
       preview.classList.remove('hidden');
+      toolbar.classList.add('opacity-40', 'pointer-events-none');
+      viewCodeBtn.style.background = 'transparent';
+      viewCodeBtn.style.color = 'var(--text-muted)';
+      viewCodeBtn.style.boxShadow = 'none';
+      previewBtn.style.background = 'var(--surface)';
+      previewBtn.style.color = 'var(--text)';
+      previewBtn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.08)';
     } else {
       preview.classList.add('hidden');
       editor.classList.remove('hidden');
+      toolbar.classList.remove('opacity-40', 'pointer-events-none');
+      previewBtn.style.background = 'transparent';
+      previewBtn.style.color = 'var(--text-muted)';
+      previewBtn.style.boxShadow = 'none';
+      viewCodeBtn.style.background = 'var(--surface)';
+      viewCodeBtn.style.color = 'var(--text)';
+      viewCodeBtn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.08)';
       editor.focus();
+    }
+  }
+
+  viewCodeBtn.addEventListener('click', () => setMode('code'));
+  previewBtn.addEventListener('click', () => setMode('preview'));
+
+  // Markdown formatting helpers with smart toggle
+  function applyFormat(type: string) {
+    // If currently in preview mode, switch to code mode first
+    if (!preview.classList.contains('hidden')) {
+      setMode('code');
+    }
+
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const text = editor.value;
+    const selected = text.slice(start, end);
+
+    switch (type) {
+      case 'bold': {
+        // 1. If selection itself starts & ends with **
+        if (selected.startsWith('**') && selected.endsWith('**') && selected.length >= 4) {
+          const inner = selected.slice(2, -2);
+          editor.setRangeText(inner, start, end, 'select');
+          editor.setSelectionRange(start, start + inner.length);
+          break;
+        }
+
+        // 2. If selection is surrounded by ** in the document
+        if (
+          start >= 2 &&
+          end <= text.length - 2 &&
+          text.slice(start - 2, start) === '**' &&
+          text.slice(end, end + 2) === '**'
+        ) {
+          editor.setRangeText(selected, start - 2, end + 2, 'select');
+          editor.setSelectionRange(start - 2, start - 2 + selected.length);
+          break;
+        }
+
+        // 3. If cursor with no selection is inside **...** on current line
+        if (start === end) {
+          const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+          const lineEndIdx = text.indexOf('\n', start);
+          const lineEnd = lineEndIdx === -1 ? text.length : lineEndIdx;
+          const line = text.slice(lineStart, lineEnd);
+          const col = start - lineStart;
+          const boldRegex = /\*\*([^*]+)\*\*/g;
+          let m: RegExpExecArray | null;
+          let handled = false;
+          while ((m = boldRegex.exec(line)) !== null) {
+            if (col >= m.index && col <= m.index + m[0].length && m[1] !== undefined) {
+              const mStart = lineStart + m.index;
+              const mEnd = mStart + m[0].length;
+              const inner = m[1];
+              editor.setRangeText(inner, mStart, mEnd, 'select');
+              editor.setSelectionRange(mStart, mStart + inner.length);
+              handled = true;
+              break;
+            }
+          }
+          if (handled) break;
+        }
+
+        // 4. Otherwise, wrap selection or insert placeholder
+        if (selected) {
+          editor.setRangeText(`**${selected}**`, start, end, 'select');
+          editor.setSelectionRange(start + 2, end + 2);
+        } else {
+          editor.setRangeText('**bold text**', start, end, 'select');
+          editor.setSelectionRange(start + 2, start + 11);
+        }
+        break;
+      }
+
+      case 'italic': {
+        // 1. If selection itself is wrapped in single * (and not **)
+        if (
+          selected.startsWith('*') &&
+          !selected.startsWith('**') &&
+          selected.endsWith('*') &&
+          !selected.endsWith('**') &&
+          selected.length >= 2
+        ) {
+          const inner = selected.slice(1, -1);
+          editor.setRangeText(inner, start, end, 'select');
+          editor.setSelectionRange(start, start + inner.length);
+          break;
+        }
+
+        // 2. If selection is surrounded by single * in the document
+        const before1 = text.slice(start - 1, start);
+        const before2 = text.slice(start - 2, start - 1);
+        const after1 = text.slice(end, end + 1);
+        const after2 = text.slice(end + 1, end + 2);
+        if (
+          start >= 1 &&
+          end <= text.length - 1 &&
+          before1 === '*' &&
+          before2 !== '*' &&
+          after1 === '*' &&
+          after2 !== '*'
+        ) {
+          editor.setRangeText(selected, start - 1, end + 1, 'select');
+          editor.setSelectionRange(start - 1, start - 1 + selected.length);
+          break;
+        }
+
+        // 3. If cursor with no selection is inside *...* on current line
+        if (start === end) {
+          const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+          const lineEndIdx = text.indexOf('\n', start);
+          const lineEnd = lineEndIdx === -1 ? text.length : lineEndIdx;
+          const line = text.slice(lineStart, lineEnd);
+          const col = start - lineStart;
+          const italicRegex = /(?<!\*)\*([^*]+)\*(?!\*)/g;
+          let m: RegExpExecArray | null;
+          let handled = false;
+          while ((m = italicRegex.exec(line)) !== null) {
+            if (col >= m.index && col <= m.index + m[0].length && m[1] !== undefined) {
+              const mStart = lineStart + m.index;
+              const mEnd = mStart + m[0].length;
+              const inner = m[1];
+              editor.setRangeText(inner, mStart, mEnd, 'select');
+              editor.setSelectionRange(mStart, mStart + inner.length);
+              handled = true;
+              break;
+            }
+          }
+          if (handled) break;
+        }
+
+        // 4. Otherwise, wrap or insert placeholder
+        if (selected) {
+          editor.setRangeText(`*${selected}*`, start, end, 'select');
+          editor.setSelectionRange(start + 1, end + 1);
+        } else {
+          editor.setRangeText('*italic text*', start, end, 'select');
+          editor.setSelectionRange(start + 1, start + 12);
+        }
+        break;
+      }
+
+      case 'code': {
+        // 1. Inline code toggle
+        if (selected.startsWith('`') && !selected.startsWith('```') && selected.endsWith('`') && !selected.endsWith('```') && selected.length >= 2) {
+          const inner = selected.slice(1, -1);
+          editor.setRangeText(inner, start, end, 'select');
+          editor.setSelectionRange(start, start + inner.length);
+          break;
+        }
+        if (
+          start >= 1 &&
+          end <= text.length - 1 &&
+          text.slice(start - 1, start) === '`' &&
+          text.slice(start - 2, start - 1) !== '`' &&
+          text.slice(end, end + 1) === '`' &&
+          text.slice(end + 1, end + 2) !== '`'
+        ) {
+          editor.setRangeText(selected, start - 1, end + 1, 'select');
+          editor.setSelectionRange(start - 1, start - 1 + selected.length);
+          break;
+        }
+
+        // 2. Cursor inside inline code
+        if (start === end) {
+          const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+          const lineEndIdx = text.indexOf('\n', start);
+          const lineEnd = lineEndIdx === -1 ? text.length : lineEndIdx;
+          const line = text.slice(lineStart, lineEnd);
+          const col = start - lineStart;
+          const codeRegex = /(?<!`)`([^`]+)`(?!`)/g;
+          let m: RegExpExecArray | null;
+          let handled = false;
+          while ((m = codeRegex.exec(line)) !== null) {
+            if (col >= m.index && col <= m.index + m[0].length && m[1] !== undefined) {
+              const mStart = lineStart + m.index;
+              const mEnd = mStart + m[0].length;
+              const inner = m[1];
+              editor.setRangeText(inner, mStart, mEnd, 'select');
+              editor.setSelectionRange(mStart, mStart + inner.length);
+              handled = true;
+              break;
+            }
+          }
+          if (handled) break;
+        }
+
+        // 3. Otherwise, wrap or insert
+        if (selected) {
+          editor.setRangeText(`\`${selected}\``, start, end, 'select');
+          editor.setSelectionRange(start + 1, end + 1);
+        } else {
+          editor.setRangeText('`code`', start, end, 'select');
+          editor.setSelectionRange(start + 1, start + 5);
+        }
+        break;
+      }
+
+      case 'code-block': {
+        // 1. Check if selected text is already a fenced code block
+        if (/^```[\s\S]*```$/.test(selected.trim())) {
+          const inner = selected.trim().replace(/^```[a-zA-Z0-9_-]*\n?/, '').replace(/\n?```$/, '');
+          editor.setRangeText(inner, start, end, 'select');
+          editor.setSelectionRange(start, start + inner.length);
+          break;
+        }
+
+        // 2. Check if cursor/selection is inside a fenced code block
+        const beforeText = text.slice(0, start);
+        const afterText = text.slice(end);
+        const lastOpenFence = beforeText.lastIndexOf('```');
+        const nextCloseFence = afterText.indexOf('```');
+        if (lastOpenFence !== -1 && nextCloseFence !== -1) {
+          const fencesBefore = (beforeText.match(/```/g) || []).length;
+          if (fencesBefore % 2 === 1) {
+            const blockStart = lastOpenFence;
+            const blockEnd = end + nextCloseFence + 3;
+            const fullBlock = text.slice(blockStart, blockEnd);
+            const inner = fullBlock.replace(/^```[a-zA-Z0-9_-]*\n?/, '').replace(/\n?```$/, '');
+            editor.setRangeText(inner, blockStart, blockEnd, 'select');
+            editor.setSelectionRange(blockStart, blockStart + inner.length);
+            break;
+          }
+        }
+
+        // 3. Otherwise, wrap selection or insert template
+        if (selected) {
+          const prefix = (start > 0 && text[start - 1] !== '\n') ? '\n```\n' : '```\n';
+          const suffix = (end < text.length && text[end] !== '\n') ? '\n```\n' : '\n```';
+          editor.setRangeText(`${prefix}${selected}${suffix}`, start, end, 'select');
+          editor.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
+        } else {
+          const prefix = (start > 0 && text[start - 1] !== '\n') ? '\n```\n' : '```\n';
+          const suffix = '\n```\n';
+          editor.setRangeText(`${prefix}code${suffix}`, start, end, 'select');
+          editor.setSelectionRange(start + prefix.length, start + prefix.length + 4);
+        }
+        break;
+      }
+
+      case 'link': {
+        // 1. Selected text is a link: [title](url)
+        const match = selected.match(/^\[(.*?)\]\((.*?)\)$/);
+        if (match && match[1] !== undefined) {
+          const inner = match[1];
+          editor.setRangeText(inner, start, end, 'select');
+          editor.setSelectionRange(start, start + inner.length);
+          break;
+        }
+
+        // 2. Selection is inside link brackets or surrounded by [ and ](...)
+        const before = text.slice(0, start);
+        const after = text.slice(end);
+        if (before.endsWith('[') && /^\(.*?\)/.test(after)) {
+          const afterMatch = after.match(/^\(.*?\)/)!;
+          editor.setRangeText(selected, start - 1, end + afterMatch[0].length, 'select');
+          editor.setSelectionRange(start - 1, start - 1 + selected.length);
+          break;
+        }
+
+        // 3. Otherwise wrap or insert
+        if (selected) {
+          editor.setRangeText(`[${selected}](https://)`, start, end, 'select');
+          const urlStart = start + selected.length + 3;
+          editor.setSelectionRange(urlStart, urlStart + 8);
+        } else {
+          editor.setRangeText('[link text](https://)', start, end, 'select');
+          editor.setSelectionRange(start + 1, start + 10);
+        }
+        break;
+      }
+
+      case 'heading': {
+        const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+        const lineEndIdx = text.indexOf('\n', end);
+        const lineEnd = lineEndIdx === -1 ? text.length : lineEndIdx;
+        const block = text.slice(lineStart, lineEnd);
+        const lines = block.split('\n');
+
+        const allHeading = lines.every((l) => /^#{1,6}\s+/.test(l));
+        let newLines: string[];
+        if (allHeading) {
+          newLines = lines.map((l) => l.replace(/^#{1,6}\s+/, ''));
+        } else {
+          newLines = lines.map((l) => `### ${l.replace(/^#{1,6}\s+/, '')}`);
+        }
+        const replacement = newLines.join('\n');
+        editor.setRangeText(replacement, lineStart, lineEnd, 'select');
+        editor.setSelectionRange(lineStart, lineStart + replacement.length);
+        break;
+      }
+
+      case 'quote': {
+        const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+        const lineEndIdx = text.indexOf('\n', end);
+        const lineEnd = lineEndIdx === -1 ? text.length : lineEndIdx;
+        const block = text.slice(lineStart, lineEnd);
+        const lines = block.split('\n');
+
+        const allQuoted = lines.every((l) => /^>\s?/.test(l));
+        let newLines: string[];
+        if (allQuoted) {
+          newLines = lines.map((l) => l.replace(/^>\s?/, ''));
+        } else {
+          newLines = lines.map((l) => `> ${l.replace(/^>\s?/, '')}`);
+        }
+        const replacement = newLines.join('\n');
+        editor.setRangeText(replacement, lineStart, lineEnd, 'select');
+        editor.setSelectionRange(lineStart, lineStart + replacement.length);
+        break;
+      }
+
+      case 'list': {
+        const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+        const lineEndIdx = text.indexOf('\n', end);
+        const lineEnd = lineEndIdx === -1 ? text.length : lineEndIdx;
+        const block = text.slice(lineStart, lineEnd);
+        const lines = block.split('\n');
+
+        const allBulleted = lines.every((l) => /^[-*+]\s+/.test(l));
+        let newLines: string[];
+        if (allBulleted) {
+          newLines = lines.map((l) => l.replace(/^[-*+]\s+/, ''));
+        } else {
+          newLines = lines.map((l) => `- ${l.replace(/^[-*+]\s+/, '').replace(/^\d+\.\s+/, '')}`);
+        }
+        const replacement = newLines.join('\n');
+        editor.setRangeText(replacement, lineStart, lineEnd, 'select');
+        editor.setSelectionRange(lineStart, lineStart + replacement.length);
+        break;
+      }
+
+      case 'list-ordered': {
+        const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+        const lineEndIdx = text.indexOf('\n', end);
+        const lineEnd = lineEndIdx === -1 ? text.length : lineEndIdx;
+        const block = text.slice(lineStart, lineEnd);
+        const lines = block.split('\n');
+
+        const allNumbered = lines.every((l) => /^\d+\.\s+/.test(l));
+        let newLines: string[];
+        if (allNumbered) {
+          newLines = lines.map((l) => l.replace(/^\d+\.\s+/, ''));
+        } else {
+          newLines = lines.map((l, idx) => `${idx + 1}. ${l.replace(/^\d+\.\s+/, '').replace(/^[-*+]\s+/, '')}`);
+        }
+        const replacement = newLines.join('\n');
+        editor.setRangeText(replacement, lineStart, lineEnd, 'select');
+        editor.setSelectionRange(lineStart, lineStart + replacement.length);
+        break;
+      }
+
+      case 'hr': {
+        const prefix = (start > 0 && text[start - 1] !== '\n') ? '\n\n---\n\n' : '\n---\n\n';
+        editor.setRangeText(prefix, start, end, 'select');
+        const pos = start + prefix.length;
+        editor.setSelectionRange(pos, pos);
+        break;
+      }
+    }
+
+    editor.focus();
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  // Prevent toolbar buttons from stealing focus from editor on mousedown
+  toolbar.querySelectorAll<HTMLButtonElement>('.toolbar-btn').forEach((btn) => {
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+    });
+    btn.addEventListener('click', () => {
+      const format = btn.dataset.format;
+      if (format) applyFormat(format);
+    });
+  });
+
+  // Editor shortcuts: Ctrl+B (bold), Ctrl+I (italic)
+  editor.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key.toLowerCase() === 'b') {
+      e.preventDefault();
+      applyFormat('bold');
+    } else if (e.ctrlKey && e.key.toLowerCase() === 'i') {
+      e.preventDefault();
+      applyFormat('italic');
     }
   });
 

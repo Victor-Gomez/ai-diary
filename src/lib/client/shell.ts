@@ -138,7 +138,7 @@ function closePalette(): void {
 
 function initGlobalShortcuts(): void {
   document.addEventListener('keydown', (e) => {
-    const mod = e.metaKey || e.ctrlKey;
+    const mod = e.ctrlKey;
     if (mod && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       openPalette();

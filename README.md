@@ -120,10 +120,10 @@ src/
 
 | Shortcut | Action |
 | --- | --- |
-| `⌘/Ctrl + N` | New entry |
-| `⌘/Ctrl + K` | Search palette |
-| `⌘/Ctrl + S` | Save entry now |
-| `Enter` / `⌘Ctrl+Enter` | Send chat message |
+| `Ctrl + N` | New entry |
+| `Ctrl + K` | Search palette |
+| `Ctrl + S` | Save entry now |
+| `Enter` / `Ctrl + Enter` | Send chat message |
 | `Shift + Enter` | Newline in chat |
 | `Esc` | Close palette / dialogs |
 
@@ -135,4 +135,11 @@ src/
   llama.cpp (OpenAI-compatible). Streaming is already implemented end to end.
 - **Tauri 2:** the app is SSR with all persistence isolated in `src/lib/db`; package
   with Tauri and repoint `DIARY_DB_PATH` + key storage to the OS.
+
+## License & Attribution
+
+- **Icons:** [Lucide](https://lucide.dev) — Licensed under the [ISC License](https://github.com/lucide-icons/lucide/blob/main/LICENSE).
+  - Copyright (c) 2026 Lucide Icons and Contributors
+  - Portions Copyright (c) 2013-present Cole Bemis (Feather Icons, MIT)
+
 

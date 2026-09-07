@@ -514,7 +514,7 @@ const suggestions = [
 
   // Events
   input?.addEventListener('keydown', (e) => {
-    if ((e.key === 'Enter' && !e.shiftKey) || ((e.metaKey || e.ctrlKey) && e.key === 'Enter')) {
+    if ((e.key === 'Enter' && !e.shiftKey) || (e.ctrlKey && e.key === 'Enter')) {
       e.preventDefault();
       void send(input.value);
     }

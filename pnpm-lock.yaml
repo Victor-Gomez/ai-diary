@@ -17,6 +17,9 @@ importers:
       better-sqlite3-multiple-ciphers:
         specifier: ^13.0.3
         version: 13.0.3
+      lucide:
+        specifier: ^1.42.0
+        version: 1.42.0
     devDependencies:
       '@astrojs/check':
         specifier: ^0.9.4
@@ -1419,6 +1422,9 @@ packages:
   lru-cache@11.5.2:
     resolution: {integrity: sha512-4pfM1Ff0x50o0tQwb5ucw/RzNyD0/YJME6IVcStalZuMWxdt3sR3huStTtxz4PUmvZfRguvDejasvQ2kifR11g==}
     engines: {node: 20 || >=22}
+
+  lucide@1.42.0:
+    resolution: {integrity: sha512-KLZ517pIUzuXGSFLlDL+5s6pcp4FI7brn4AXrFmRP7ghtxVVJ7/o4d3VejZeLPU127D/jITLs5WTLnH9Dc7VxA==}
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -3534,6 +3540,8 @@ snapshots:
   longest-streak@3.1.0: {}
 
   lru-cache@11.5.2: {}
+
+  lucide@1.42.0: {}
 
   magic-string@0.30.21:
     dependencies:

@@ -24,18 +24,51 @@ export function renderMarkdown(src: string): string {
   while (i < lines.length) {
     const line = lines[i]!;
 
-    // Fenced code block
-    if (/^```/.test(line.trim())) {
+    // Fenced code block (``` or ~~~)
+    if (/^(?:```|~~~)/.test(line.trim())) {
       flushParagraph(paragraph);
       const code: string[] = [];
       i++;
-      while (i < lines.length && !/^```/.test(lines[i]!.trim())) {
+      while (i < lines.length && !/^(?:```|~~~)/.test(lines[i]!.trim())) {
         code.push(lines[i]!);
         i++;
       }
-      i++; // closing fence
+      if (i < lines.length) i++; // closing fence if present
       out.push(`<pre><code>${code.join('\n')}</code></pre>`);
       continue;
+    }
+
+    // Indented code block (4 spaces or 1 tab)
+    if (/^(?: {4}|\t)/.test(line) && paragraph.length === 0) {
+      flushParagraph(paragraph);
+      const code: string[] = [];
+      while (i < lines.length && (/^(?: {4}|\t)/.test(lines[i]!) || lines[i]!.trim() === '')) {
+        code.push(lines[i]!.replace(/^(?: {4}|\t)/, ''));
+        i++;
+      }
+      while (code.length > 0 && code[code.length - 1] === '') {
+        code.pop();
+      }
+      out.push(`<pre><code>${code.join('\n')}</code></pre>`);
+      continue;
+    }
+
+    // Consecutive full-line backtick blocks (`line1` \n `line2`)
+    if (/^`[^`]+`$/.test(line.trim())) {
+      let j = i;
+      while (j < lines.length && /^`[^`]+`$/.test(lines[j]!.trim())) {
+        j++;
+      }
+      if (j - i > 1) {
+        flushParagraph(paragraph);
+        const code: string[] = [];
+        while (i < j) {
+          code.push(lines[i]!.trim().slice(1, -1));
+          i++;
+        }
+        out.push(`<pre><code>${code.join('\n')}</code></pre>`);
+        continue;
+      }
     }
 
     // Horizontal rule
@@ -57,11 +90,11 @@ export function renderMarkdown(src: string): string {
     }
 
     // Blockquote (consecutive)
-    if (/^\s*>\s?/.test(line)) {
+    if (/^\s*(?:>|&gt;)\s?/.test(line)) {
       flushParagraph(paragraph);
       const quote: string[] = [];
-      while (i < lines.length && /^\s*>\s?/.test(lines[i]!)) {
-        quote.push(lines[i]!.replace(/^\s*>\s?/, ''));
+      while (i < lines.length && /^\s*(?:>|&gt;)\s?/.test(lines[i]!)) {
+        quote.push(lines[i]!.replace(/^\s*(?:>|&gt;)\s?/, ''));
         i++;
       }
       out.push(`<blockquote>${inline(quote.join('<br>'))}</blockquote>`);
