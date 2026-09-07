@@ -31,10 +31,16 @@ const status = await Promise.race([
     <meta name="color-scheme" content="light dark" />
     <title>{title} · Diary</title>
     <script is:inline>
-      // Apply saved theme before first paint to avoid a flash.
+      // Apply saved theme and sidebar widths before first paint to avoid a flash.
       try {
         const t = localStorage.getItem('diary-theme');
         if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+        const sw = localStorage.getItem('diary-sidebar-width');
+        if (sw) document.documentElement.style.setProperty('--sidebar-width', sw + 'px');
+        const cw = localStorage.getItem('diary-context-sidebar-width');
+        if (cw) document.documentElement.style.setProperty('--context-sidebar-width', cw + 'px');
+        const dw = localStorage.getItem('diary-chat-draft-width');
+        if (dw) document.documentElement.style.setProperty('--chat-draft-width', dw + 'px');
       } catch (e) {}
     </script>
   </head>
@@ -55,9 +61,15 @@ const status = await Promise.race([
       {
         hasContext && (
           <aside
-            class="hidden w-[320px] shrink-0 overflow-y-auto border-l xl:block"
-            style="background: var(--surface-2); border-color: var(--border);"
+            id="context-sidebar"
+            class="relative hidden shrink-0 overflow-y-auto border-l xl:block"
+            style="width: var(--context-sidebar-width, 320px); background: var(--surface-2); border-color: var(--border);"
           >
+            <div
+              id="context-resizer"
+              class="absolute -left-1 top-0 bottom-0 z-30 w-2 cursor-col-resize hover:bg-[var(--accent)] active:bg-[var(--accent)] transition-colors opacity-0 hover:opacity-100 active:opacity-100"
+              title="Drag to resize panel (double-click to reset)"
+            ></div>
             <slot name="context" />
           </aside>
         )

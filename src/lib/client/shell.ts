@@ -7,6 +7,7 @@ export function initShell(): void {
   initPalette();
   initGlobalShortcuts();
   initLock();
+  initResizers();
 }
 
 function initLock(): void {
@@ -161,3 +162,127 @@ function escapeHtml(s: string): string {
   d.textContent = s;
   return d.innerHTML;
 }
+
+// --- Resizable Sidebars ---------------------------------------------------
+
+interface ResizableConfig {
+  handleId: string;
+  targetId: string;
+  storageKey: string;
+  cssVar: string;
+  side: 'left' | 'right';
+  defaultWidth: number;
+  minWidth: number;
+  maxWidth: number;
+}
+
+function initResizers(): void {
+  // Left Navigation Sidebar
+  setupResizable({
+    handleId: 'sidebar-resizer',
+    targetId: 'app-sidebar',
+    storageKey: 'diary-sidebar-width',
+    cssVar: '--sidebar-width',
+    side: 'left',
+    defaultWidth: 248,
+    minWidth: 180,
+    maxWidth: 460,
+  });
+
+  // Right Context Sidebar
+  setupResizable({
+    handleId: 'context-resizer',
+    targetId: 'context-sidebar',
+    storageKey: 'diary-context-sidebar-width',
+    cssVar: '--context-sidebar-width',
+    side: 'right',
+    defaultWidth: 320,
+    minWidth: 240,
+    maxWidth: 600,
+  });
+
+  // Chat Draft Panel
+  setupResizable({
+    handleId: 'draft-resizer',
+    targetId: 'draft-panel',
+    storageKey: 'diary-chat-draft-width',
+    cssVar: '--chat-draft-width',
+    side: 'right',
+    defaultWidth: 380,
+    minWidth: 280,
+    maxWidth: 650,
+  });
+}
+
+function setupResizable(config: ResizableConfig): void {
+  const handle = document.getElementById(config.handleId);
+  const target = document.getElementById(config.targetId);
+  if (!handle || !target) return;
+
+  // Double-click to reset to default
+  handle.addEventListener('dblclick', () => {
+    document.documentElement.style.setProperty(config.cssVar, config.defaultWidth + 'px');
+    target.style.width = config.defaultWidth + 'px';
+    try {
+      localStorage.removeItem(config.storageKey);
+    } catch {
+      /* ignore */
+    }
+  });
+
+  handle.addEventListener('pointerdown', (e: PointerEvent) => {
+    e.preventDefault();
+    try {
+      handle.setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+
+    const startX = e.clientX;
+    const startWidth = target.getBoundingClientRect().width;
+    let currentWidth = startWidth;
+
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    handle.classList.add('opacity-100');
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      const delta = moveEvent.clientX - startX;
+      let newWidth: number;
+      if (config.side === 'left') {
+        newWidth = startWidth + delta;
+      } else {
+        newWidth = startWidth - delta;
+      }
+
+      newWidth = Math.max(config.minWidth, Math.min(config.maxWidth, newWidth));
+      currentWidth = Math.round(newWidth);
+
+      document.documentElement.style.setProperty(config.cssVar, currentWidth + 'px');
+      target.style.width = currentWidth + 'px';
+    };
+
+    const onPointerUp = (upEvent: PointerEvent) => {
+      try {
+        handle.releasePointerCapture(upEvent.pointerId);
+      } catch {
+        /* ignore */
+      }
+      handle.classList.remove('opacity-100');
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+
+      try {
+        localStorage.setItem(config.storageKey, String(currentWidth));
+      } catch {
+        /* ignore */
+      }
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+  });
+}
+

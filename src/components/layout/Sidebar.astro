@@ -18,8 +18,9 @@ const nav = [
 ];
 ---
 <aside
-  class="flex h-full w-[248px] shrink-0 flex-col border-r"
-  style="background: var(--surface-2); border-color: var(--border);"
+  id="app-sidebar"
+  class="relative flex h-full shrink-0 flex-col border-r"
+  style="width: var(--sidebar-width, 248px); background: var(--surface-2); border-color: var(--border);"
 >
   <!-- Brand -->
   <div class="flex items-center gap-2.5 px-4 pt-4 pb-3">
@@ -102,6 +103,13 @@ const nav = [
       </button>
     </div>
   </div>
+
+  <!-- Resizer Handle -->
+  <div
+    id="sidebar-resizer"
+    class="absolute -right-1 top-0 bottom-0 z-30 w-2 cursor-col-resize hover:bg-[var(--accent)] active:bg-[var(--accent)] transition-colors opacity-0 hover:opacity-100 active:opacity-100"
+    title="Drag to resize sidebar (double-click to reset)"
+  ></div>
 </aside>
 
 <style>

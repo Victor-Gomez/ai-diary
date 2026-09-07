@@ -112,9 +112,14 @@ const suggestions = [
     <!-- RIGHT: live draft entry -->
     <aside
       id="draft-panel"
-      class="hidden w-[380px] shrink-0 flex-col border-l lg:flex"
-      style="background: var(--surface-2); border-color: var(--border)"
+      class="relative hidden shrink-0 flex-col border-l lg:flex"
+      style="width: var(--chat-draft-width, 380px); background: var(--surface-2); border-color: var(--border)"
     >
+      <div
+        id="draft-resizer"
+        class="absolute -left-1 top-0 bottom-0 z-30 w-2 cursor-col-resize hover:bg-[var(--accent)] active:bg-[var(--accent)] transition-colors opacity-0 hover:opacity-100 active:opacity-100"
+        title="Drag to resize draft panel (double-click to reset)"
+      ></div>
       <header class="flex items-center gap-2 border-b px-4 py-2.5" style="border-color: var(--border)">
         <Icon name="edit" size={16} />
         <div class="min-w-0">
