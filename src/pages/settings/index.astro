@@ -24,7 +24,7 @@ const providers = [
 ];
 ---
 <AppLayout title="Settings">
-  <div class="mx-auto max-w-2xl px-6 py-8 md:px-10">
+  <div class="mx-auto max-w-4xl px-6 py-8 md:px-10">
     <h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
 
     <!-- AI -->
@@ -35,7 +35,7 @@ const providers = [
       <div class="card space-y-5 p-5">
         <div>
           <label class="text-sm font-medium">AI provider</label>
-          <div class="mt-2 space-y-2" id="provider-group">
+          <div class="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-2" id="provider-group">
             {
               providers.map((p) => (
                 <label class="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors" style="border-color: var(--border)">
