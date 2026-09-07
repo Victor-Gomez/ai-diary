@@ -14,6 +14,20 @@ fully on-device.
 - 🔍 **Full-Text Search (FTS5):** Fast search across encrypted entries and conversations.
 - 💾 **Data Portability:** Complete export, import, and backup management.
 
+## Screenshots
+
+**Today — your day at a glance**
+
+![Today dashboard: today's entry, recent entries, mood snapshot with trend, and topics on your mind](docs/screenshot-02.avif)
+
+**Write in Markdown, with private AI reflections alongside**
+
+![Diary editor showing a Markdown entry beside the AI reflection panel — mood, energy and topics derived from the text](docs/screenshot-01.avif)
+
+**Chat with your diary while the entry takes shape**
+
+![Two-panel chat: the journaling companion on the left refining the entry, the live draft with a Markdown quote block on the right](docs/screenshot-03.avif)
+
 ## Quick start
 
 ### Prerequisites

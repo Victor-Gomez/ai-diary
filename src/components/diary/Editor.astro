@@ -27,16 +27,6 @@ const initialHtml = renderMarkdown(content);
     </div>
 
     <div class="ml-auto flex shrink-0 items-center gap-2">
-      <span
-        id="save-status"
-        class="flex items-center gap-1.5 text-xs transition-opacity whitespace-nowrap"
-        style="color: var(--text-faint)"
-        aria-live="polite"
-      >
-        <span class="inline-block h-1.5 w-1.5 rounded-full" style="background: var(--border-strong)" id="save-dot"></span>
-        <span id="save-text">Ready</span>
-      </span>
-
       <!-- Segmented View Code / Preview switch (defaults to Preview) -->
       <div class="flex items-center rounded-lg p-0.5 border shrink-0" style="background: var(--surface-2); border-color: var(--border)">
         <button
@@ -221,7 +211,14 @@ const initialHtml = renderMarkdown(content);
   >
     <span id="word-count">0 words</span>
     <span id="read-time"></span>
-    <span class="ml-auto flex items-center gap-1"><Icon name="lock" size={11} /> Encrypted &amp; local</span>
+    <span
+      id="save-status"
+      class="ml-auto flex items-center gap-1.5 whitespace-nowrap transition-opacity"
+      aria-live="polite"
+    >
+      <span class="inline-block h-1.5 w-1.5 rounded-full" style="background: var(--border-strong)" id="save-dot"></span>
+      <span id="save-text">Ready</span>
+    </span>
     <kbd class="chip text-[10px]">Ctrl+S</kbd>
   </footer>
 </div>

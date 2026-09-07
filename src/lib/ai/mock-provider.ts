@@ -59,24 +59,6 @@ function round2(n: number): number {
 }
 
 /** Naive proper-noun extraction: capitalized words not at sentence start. */
-function extractPeople(content: string): string[] {
-  const text = stripMarkdown(content);
-  const found = new Set<string>();
-  const sentences = text.split(/(?<=[.!?])\s+/);
-  const commonCaps = new Set(['I', 'The', 'A', 'My', 'We', 'It', 'This', 'That', 'They', 'He', 'She', 'Today', 'Yesterday', 'Tomorrow', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']);
-  for (const s of sentences) {
-    const words = s.trim().split(/\s+/);
-    words.forEach((w, i) => {
-      const clean = w.replace(/[^A-Za-zÀ-ÿ]/g, '');
-      if (clean.length < 3) return;
-      if (i === 0) return; // skip sentence-initial capitalization
-      if (commonCaps.has(clean)) return;
-      if (/^[A-ZÀ-Þ][a-zà-ÿ]+$/.test(clean)) found.add(clean);
-    });
-  }
-  return [...found].slice(0, 8);
-}
-
 async function* singleChunk(text: string): AsyncIterable<string> {
   // Emit word-by-word so the UI's streaming path is exercised end to end.
   const parts = text.split(/(\s+)/);
@@ -119,19 +101,20 @@ export class MockAIProvider implements AIProvider {
 
     const activities = ACTIVITY_VERBS.filter((a) => words.includes(a));
 
-    const people = extractPeople(content);
-
     const summary = buildSummary(content);
     const important = neg + stressCount >= 4 || content.length > 1200;
 
+    // The built-in analyzer intentionally does NOT extract personal data
+    // (names/places). It stays with non-identifying signals: mood, topics,
+    // activities. A real provider can populate people/places if the user opts in.
     return {
       summary,
       mood: round2(mood),
       stress: round2(stress),
       energy: round2(energy),
       topics: topics.slice(0, 6),
-      people,
-      places: extractPlaces(words, content),
+      people: [],
+      places: [],
       activities: activities.slice(0, 6),
       important,
     };
@@ -208,23 +191,6 @@ export class MockAIProvider implements AIProvider {
   async status(): Promise<{ ok: boolean; detail: string }> {
     return { ok: true, detail: this.statusDetail };
   }
-}
-
-// Small place lexicon; real NER comes with a real model later.
-const KNOWN_PLACE_HINTS = ['salamanca', 'madrid', 'barcelona', 'london', 'paris', 'tokyo', 'japan', 'york', 'beach', 'park', 'office', 'home', 'gym', 'school', 'university', 'airport', 'mountains'];
-
-function extractPlaces(words: string[], content: string): string[] {
-  const set = new Set<string>();
-  for (const w of words) {
-    if (KNOWN_PLACE_HINTS.includes(w)) set.add(w[0]!.toUpperCase() + w.slice(1));
-  }
-  // "in/at/to <Capitalized>" pattern
-  const m = stripMarkdown(content).matchAll(/\b(?:in|at|to|from)\s+([A-ZÀ-Þ][a-zà-ÿ]+)/g);
-  for (const match of m) {
-    const place = match[1];
-    if (place && place.length > 2) set.add(place);
-  }
-  return [...set].slice(0, 6);
 }
 
 // --- Draft refinement (mock heuristics for "change X to Y" etc.) ------------
