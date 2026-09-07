@@ -1,0 +1,15 @@
+---
+import EntryCard from '../../components/diary/EntryCard.astro';
+import { listEntries } from '../../lib/diary/entries';
+
+// A headless HTML fragment (no layout) of a page of entry cards, consumed by the
+// infinite-scroll feed on /diary. Reuses EntryCard so markup stays in one place.
+export const prerender = false;
+export const partial = true;
+
+const url = Astro.url;
+const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? 25), 1), 100);
+const offset = Math.max(Number(url.searchParams.get('offset') ?? 0), 0);
+const entries = listEntries(limit, offset);
+---
+{entries.map((entry) => <EntryCard entry={entry} />)}

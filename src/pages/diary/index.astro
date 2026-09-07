@@ -30,9 +30,13 @@ if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
   calMonth = m! - 1;
 }
 
-const entries = dateParam ? getEntriesByDate(dateParam) : listEntries(200);
+const PAGE_SIZE = 25;
+// Filtered-by-date views are small and load in full; the full journal streams in
+// pages via infinite scroll (see the partial route at /diary/cards).
+const entries = dateParam ? getEntriesByDate(dateParam) : listEntries(PAGE_SIZE);
 const total = countEntries();
 const entryDates = getEntryDateKeys();
+const canLoadMore = !dateParam && entries.length < total;
 ---
 <AppLayout title="Diary" hasContext={true}>
   <div class="mx-auto max-w-3xl px-6 py-6 md:px-10">
@@ -67,12 +71,48 @@ const entryDates = getEntryDateKeys();
           <a href="/diary/new" class="btn btn-primary mt-4"><Icon name="plus" size={16} /> Write your first entry</a>
         </div>
       ) : (
-        <div class="flex flex-col gap-3">
-          {entries.map((entry) => <EntryCard entry={entry} />)}
-        </div>
+        <>
+          <div
+            id="entry-feed"
+            class="entry-feed flex flex-col gap-3"
+            data-total={total}
+            data-page-size={PAGE_SIZE}
+          >
+            {entries.map((entry) => <EntryCard entry={entry} />)}
+          </div>
+          {canLoadMore && (
+            <div id="entry-sentinel" class="flex items-center justify-center py-6" aria-hidden="true">
+              <span class="feed-spinner inline-block h-4 w-4 rounded-full" />
+            </div>
+          )}
+        </>
       )
     }
   </div>
+
+  <script>
+    import { initEntryFeed } from '../../lib/client/entry-feed';
+    initEntryFeed();
+  </script>
+
+  <style>
+    /* Native virtualization: off-screen cards skip render/layout/paint work
+       while keeping scroll position stable (auto remembers measured height). */
+    :global(.entry-feed > a.card) {
+      content-visibility: auto;
+      contain-intrinsic-size: auto 132px;
+    }
+    .feed-spinner {
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      animation: feed-spin 0.7s linear infinite;
+    }
+    @keyframes feed-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
 
   <Fragment slot="context">
     <Calendar year={calYear} month={calMonth} entryDates={entryDates} selectedDate={dateParam} />

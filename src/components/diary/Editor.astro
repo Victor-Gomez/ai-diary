@@ -243,6 +243,7 @@ const initialHtml = renderMarkdown(content);
 
 <script>
   import { showToast } from '../../lib/client/toast';
+  import { confirmDialog, promptDialog } from '../../lib/client/modal';
   import { renderMarkdown } from '../../lib/utils/markdown';
 
   const editor = document.getElementById('editor') as HTMLTextAreaElement;
@@ -263,6 +264,9 @@ const initialHtml = renderMarkdown(content);
   let saveTimer: number | undefined;
   let analyzeTimer: number | undefined;
   let saving = false;
+  // True only while the first POST that creates this entry is in flight, so the
+  // beforeunload handler never fires a second create and duplicates the entry.
+  let creating = false;
 
   function setStatus(text: string, tone: 'idle' | 'saving' | 'saved' | 'dirty') {
     saveText.textContent = text;
@@ -405,6 +409,7 @@ const initialHtml = renderMarkdown(content);
     setStatus('Saving…', 'saving');
     try {
       if (!entryId) {
+        creating = true;
         const res = await fetch('/api/entries', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -430,6 +435,7 @@ const initialHtml = renderMarkdown(content);
       showToast('Could not save — retrying on next change', 'error');
     } finally {
       saving = false;
+      creating = false;
     }
   }
 
@@ -487,6 +493,8 @@ const initialHtml = renderMarkdown(content);
       type: 'application/json',
     });
     if (!entryId) {
+      // A create is already in flight — a second POST here would duplicate it.
+      if (creating) return;
       navigator.sendBeacon?.('/api/entries', payload);
     } else {
       void fetch(`/api/entries/${entryId}`, {
@@ -657,10 +665,30 @@ const initialHtml = renderMarkdown(content);
         if (a) {
           a.replaceWith(...a.childNodes);
         } else {
-          const url = prompt('Enter URL:', 'https://');
-          if (url) {
+          // Async URL prompt: capture the current selection and restore it
+          // after the modal closes, since focus/selection are lost meanwhile.
+          const saved = range.cloneRange();
+          void promptDialog({
+            title: 'Insert link',
+            message: 'Enter the URL to link to.',
+            placeholder: 'https://',
+            initialValue: 'https://',
+          }).then((url) => {
+            if (!url) return;
+            preview.focus();
+            const s = window.getSelection();
+            if (s) {
+              s.removeAllRanges();
+              s.addRange(saved);
+            }
             document.execCommand('createLink', false, url);
-          }
+            editor.value = htmlToMarkdown(preview);
+            updateCounts();
+            setStatus('Editing…', 'dirty');
+            window.clearTimeout(saveTimer);
+            saveTimer = window.setTimeout(() => void save(), 800);
+          });
+          return;
         }
         break;
       }
@@ -1082,7 +1110,13 @@ const initialHtml = renderMarkdown(content);
   // Delete
   deleteBtn?.addEventListener('click', async () => {
     if (!entryId) return;
-    if (!confirm('Delete this entry permanently? This cannot be undone.')) return;
+    const ok = await confirmDialog({
+      title: 'Delete this entry?',
+      message: 'This permanently deletes the entry and cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await fetch(`/api/entries/${entryId}`, { method: 'DELETE' });
       showToast('Entry deleted', 'success');

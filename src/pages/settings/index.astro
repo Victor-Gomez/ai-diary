@@ -211,6 +211,7 @@ const providers = [
 
 <script>
   import { showToast } from '../../lib/client/toast';
+  import { confirmDialog, promptDialog } from '../../lib/client/modal';
   import { apiSend } from '../../lib/client/api';
   import type { AppSettings } from '@/types';
 
@@ -279,7 +280,16 @@ const providers = [
   $('import-file')?.addEventListener('change', async (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
-    if (!confirm('Importing will REPLACE all current diary data. Continue?')) return;
+    const ok = await confirmDialog({
+      title: 'Replace all data?',
+      message: 'Importing will REPLACE all current diary data. This cannot be undone.',
+      confirmLabel: 'Import & replace',
+      danger: true,
+    });
+    if (!ok) {
+      (e.target as HTMLInputElement).value = '';
+      return;
+    }
     try {
       const text = await file.text();
       const res = await fetch('/api/data/import', {
@@ -297,7 +307,12 @@ const providers = [
 
   // Delete all
   $('delete-all')?.addEventListener('click', async () => {
-    const answer = prompt('This permanently deletes ALL data. Type DELETE to confirm.');
+    const answer = await promptDialog({
+      title: 'Delete all data?',
+      message: 'This permanently deletes ALL entries, chats and memories. Type DELETE to confirm.',
+      placeholder: 'DELETE',
+      confirmLabel: 'Delete everything',
+    });
     if (answer !== 'DELETE') return;
     try {
       await apiSend('/api/data/delete-all', 'POST', { confirm: 'DELETE' });

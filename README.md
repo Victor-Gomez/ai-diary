@@ -137,6 +137,8 @@ src/
 | `Ctrl + N` | New entry |
 | `Ctrl + K` | Search palette |
 | `Ctrl + S` | Save entry now |
+| `Ctrl + B` | Bold (in the editor) |
+| `Ctrl + I` | Italic (in the editor) |
 | `Enter` / `Ctrl + Enter` | Send chat message |
 | `Shift + Enter` | Newline in chat |
 | `Esc` | Close palette / dialogs |
