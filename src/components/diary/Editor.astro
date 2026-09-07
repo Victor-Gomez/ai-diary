@@ -48,10 +48,10 @@ const { id, content, createdAt } = Astro.props;
   </header>
 
   <!-- Writing surface -->
-  <div class="relative flex-1 overflow-hidden pb-6">
+  <div class="editor-surface relative mb-6 flex-1 flex flex-col rounded-xl overflow-hidden shadow-xs">
     <textarea
       id="editor"
-      class="prose-diary h-full w-full resize-none bg-transparent outline-none placeholder:opacity-60"
+      class="prose-diary h-full w-full flex-1 resize-none bg-transparent p-5 md:p-7 outline-none placeholder:opacity-50"
       style="color: var(--text)"
       placeholder="Start writing…  (Markdown supported)"
       spellcheck="true"
@@ -60,7 +60,7 @@ const { id, content, createdAt } = Astro.props;
     >{content}</textarea>
     <div
       id="preview"
-      class="prose-diary hidden h-full w-full overflow-y-auto"
+      class="prose-diary hidden h-full w-full flex-1 overflow-y-auto p-5 md:p-7"
     ></div>
   </div>
 

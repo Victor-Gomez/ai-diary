@@ -35,6 +35,7 @@
   --sidebar-width: 248px;
   --context-sidebar-width: 320px;
   --chat-draft-width: 380px;
+  --input-bg: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -56,6 +57,7 @@
     --danger-soft: #33211f;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
     --ring: rgba(123, 195, 90, 0.4);
+    --input-bg: #23252b;
   }
 }
 
@@ -77,6 +79,7 @@
   --danger-soft: #33211f;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
   --ring: rgba(123, 195, 90, 0.4);
+  --input-bg: #23252b;
 }
 
 html,
@@ -118,9 +121,8 @@ body {
 }
 
 :focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--ring);
-  border-radius: 6px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 @layer components {
@@ -168,17 +170,68 @@ body {
     box-shadow: var(--shadow);
   }
 
-  .input {
-    @apply w-full rounded-lg px-3 py-2 text-sm transition-colors;
-    background: var(--surface);
+  .input,
+  input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='submit']):not([type='button']),
+  select.input,
+  textarea.input {
+    @apply w-full rounded-lg px-3.5 py-2 text-sm transition-all duration-150;
+    background: var(--input-bg);
     border: 1px solid var(--border-strong);
     color: var(--text);
+    outline: 2px solid transparent;
+    outline-offset: 1px;
   }
-  .input::placeholder {
+  .input::placeholder,
+  textarea.input::placeholder,
+  input::placeholder {
     color: var(--text-faint);
   }
-  .input:focus {
+  .input:focus,
+  .input:focus-visible,
+  textarea.input:focus,
+  textarea.input:focus-visible,
+  select.input:focus,
+  select.input:focus-visible,
+  input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='submit']):not([type='button']):focus,
+  input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='submit']):not([type='button']):focus-visible {
     border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    box-shadow: 0 0 0 3px var(--ring);
+  }
+
+  .editor-surface {
+    background: var(--input-bg);
+    border: 1px solid var(--border-strong);
+    outline: 2px solid transparent;
+    outline-offset: 1px;
+    transition: border-color 0.15s ease, outline 0.15s ease, box-shadow 0.15s ease;
+  }
+  .editor-surface:focus-within {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    box-shadow: 0 0 0 3px var(--ring);
+  }
+
+  #editor:focus,
+  #editor:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  .search-bar-surface {
+    background: var(--input-bg);
+    border: 1px solid var(--border-strong);
+    outline: 2px solid transparent;
+    outline-offset: 1px;
+    transition: border-color 0.15s ease, outline 0.15s ease, box-shadow 0.15s ease;
+  }
+  .search-bar-surface:focus-within {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    box-shadow: 0 0 0 3px var(--ring);
   }
 
   .chip {

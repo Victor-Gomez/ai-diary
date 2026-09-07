@@ -33,7 +33,7 @@ const asWith = results.map((r) => ({ ...r.entry, analysis: r.analysis }));
     <p class="mt-0.5 text-sm" style="color: var(--text-muted)">Full-text search across your encrypted diary.</p>
 
     <!-- Search bar -->
-    <div class="mt-4 flex items-center gap-2 rounded-xl px-3" style="background: var(--surface); border: 1px solid var(--border-strong)">
+    <div class="search-bar-surface mt-4 flex items-center gap-2 rounded-xl px-3 transition-all">
       <Icon name="search" size={18} class="opacity-60" />
       <input
         id="q"
